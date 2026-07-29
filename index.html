@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>RV Express - Autoatendimento</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192x192.png">
+    <link rel="apple-touch-icon" href="icon-192x192.png">
+    <meta name="theme-color" content="#e63946">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIlJWIEV4cHJlc3MiLAogICJzaG9ydF9uYW1lIjogIlJWIEV4cHJlc3MiLAogICJkZXNjcmlwdGlvbiI6ICJBdXRvYXRlbmRpbWVudG8gMjRoIiwKICAic3RhcnRfdXJsIjogIi4iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiNlNjM5NDYiLAogICJ0aGVtZV9jb2xvciI6ICIjZTYzOTQ2Igp9">
@@ -678,7 +682,7 @@
                 const bandeira = detectarBandeira(cardNumber);
                 console.log('💳 Bandeira detectada:', bandeira);
 
-                const tokenResponse = await mp.card.create({
+                const tokenResponse = await mp.createCardToken({
                     cardNumber: cardNumber,
                     cardholderName: cardName,
                     cardExpirationMonth: mes,
@@ -731,7 +735,8 @@
                 }
             } catch (error) {
                 console.error('Erro:', error);
-                mostrarToast('❌ Erro no processamento. Tente novamente.', 'erro');
+                const detalheErro = (error && error.message) ? error.message : 'Tente novamente';
+                mostrarToast(`❌ Erro no processamento: ${detalheErro}`, 'erro');
                 btn.disabled = false;
                 btn.textContent = pagamentoSelecionado === 'credito' ? '💳 Pagar com Crédito' : '💳 Pagar com Débito';
             }
