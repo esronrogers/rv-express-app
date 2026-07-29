@@ -12,6 +12,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIlJWIEV4cHJlc3MiLAogICJzaG9ydF9uYW1lIjogIlJWIEV4cHJlc3MiLAogICJkZXNjcmlwdGlvbiI6ICJBdXRvYXRlbmRpbWVudG8gMjRoIiwKICAic3RhcnRfdXJsIjogIi4iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiNlNjM5NDYiLAogICJ0aGVtZV9jb2xvciI6ICIjZTYzOTQ2Igp9">
     <script src="https://sdk.mercadopago.com/js/v2"></script>
+    <script src="https://www.mercadopago.com/v2/security.js" view="checkout"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         html, body { overflow: hidden; height: 100%; width: 100%; font-family: 'Segoe UI', Arial, sans-serif; background: #f5f5f5; touch-action: none; position: fixed; top: 0; left: 0; }
@@ -711,7 +712,8 @@
                         payment_method_id: bandeira,
                         email: 'cliente@rvexpress.com',
                         cpf: cpf.replace(/\D/g, ''),
-                        nome: cardName
+                        nome: cardName,
+                        deviceId: (typeof window.MP_DEVICE_SESSION_ID !== 'undefined') ? window.MP_DEVICE_SESSION_ID : ''
                     })
                 });
 
