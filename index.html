@@ -469,7 +469,10 @@
         function irTela(id) {
             document.querySelectorAll('.tela').forEach(t => t.classList.remove('ativa'));
             document.getElementById(id).classList.add('ativa');
-            if (id === 'telaEscaneamento') atualizarInterface();
+            if (id === 'telaEscaneamento') {
+                atualizarInterface();
+                setTimeout(() => document.getElementById('codigoBarra').focus(), 100);
+            }
             if (id === 'telaPagamento') {
                 atualizarPagamento();
                 document.getElementById('cartaoForm').classList.remove('ativo');
@@ -729,6 +732,10 @@
                 if (data.status === 'approved') {
                     mostrarToast(`✅ Pagamento aprovado! ID: ${data.id}`, 'sucesso');
                     finalizarCompra(pagamentoSelecionado === 'credito' ? 'Cartão de Crédito' : 'Cartão de Débito', data.id);
+                } else if (data.status === 'in_process' || data.status === 'pending') {
+                    mostrarToast(`⏳ Pagamento em análise pelo Mercado Pago. Aguarde alguns instantes e consulte o status antes de repetir a compra.`, '');
+                    btn.disabled = false;
+                    btn.textContent = pagamentoSelecionado === 'credito' ? '💳 Pagar com Crédito' : '💳 Pagar com Débito';
                 } else {
                     const mensagemErro = data.status_detail || data.message || data.erro || 'Tente novamente';
                     mostrarToast(`❌ Pagamento recusado: ${mensagemErro}`, 'erro');
@@ -990,6 +997,20 @@
             this.style.background = '#fafafa';
             statusBip.textContent = '⏳ Aguardando leitura...';
             statusBip.className = 'status-bip';
+        });
+
+        // Mantém o campo do leitor sempre em foco enquanto estiver na tela
+        // de escaneamento, mesmo que algo (toque acidental, outro botão)
+        // tire o foco dele — assim o leitor USB continua funcionando sem
+        // precisar tocar manualmente no campo antes de cada leitura.
+        inputLeitor.addEventListener('blur', function() {
+            setTimeout(() => {
+                const telaAtiva = document.getElementById('telaEscaneamento').classList.contains('ativa');
+                const modalAberto = document.querySelector('.modal-overlay.ativa');
+                if (telaAtiva && !modalAberto) {
+                    inputLeitor.focus();
+                }
+            }, 200);
         });
 
         let toastTimeout = null;
