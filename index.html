@@ -290,14 +290,9 @@
                 <div class="info-pag"><div class="nome-pag">PIX</div><div class="desc-pag">Pagamento aprovado na hora!</div></div>
                 <div class="seta">›</div>
             </div>
-            <div class="opcao-pag" onclick="escolherPagamento('credito')">
+            <div class="opcao-pag" onclick="escolherPagamento('maquininha')">
                 <div class="icone-pag">💳</div>
-                <div class="info-pag"><div class="nome-pag">CARTÃO DE CRÉDITO</div><div class="desc-pag">Parcele em até 12x*</div></div>
-                <div class="seta">›</div>
-            </div>
-            <div class="opcao-pag" onclick="escolherPagamento('debito')">
-                <div class="icone-pag">💳</div>
-                <div class="info-pag"><div class="nome-pag">CARTÃO DE DÉBITO</div><div class="desc-pag">Pagamento na hora!</div></div>
+                <div class="info-pag"><div class="nome-pag">CARTÃO NA MAQUININHA</div><div class="desc-pag">Aproxime ou insira o cartão</div></div>
                 <div class="seta">›</div>
             </div>
         </div>
@@ -311,14 +306,11 @@
             <button class="btn-fechar-pix" onclick="fecharPix()">✕ Fechar</button>
         </div>
 
-        <div class="cartao-form" id="cartaoForm">
-            <h3 style="margin-bottom:12px;color:#333;font-size:17px;text-align:center;">💳 Dados do Cartão</h3>
-            <div class="campo"><label>Número do Cartão</label><input type="text" id="cardNumber" placeholder="0000 0000 0000 0000" maxlength="19"></div>
-            <div class="campo"><label>Nome no Cartão</label><input type="text" id="cardName" placeholder="Como está no cartão"></div>
-            <div class="campo-row"><div class="campo"><label>Validade</label><input type="text" id="cardExpiry" placeholder="MM/AA" maxlength="5"></div><div class="campo"><label>CVV</label><input type="text" id="cardCvv" placeholder="123" maxlength="4"></div></div>
-            <div class="campo"><label>CPF (obrigatório)</label><input type="text" id="cardCpf" placeholder="000.000.000-00" maxlength="14"></div>
-            <button class="btn-pagar-cartao" id="btnPagarCartao" onclick="processarPagamentoCartao()">💳 Pagar</button>
-            <div class="seguro-texto">🔒 Dados protegidos com criptografia</div>
+        <div class="cartao-form" id="maquininhaArea">
+            <h3 style="margin-bottom:12px;color:#333;font-size:17px;text-align:center;">💳 Cartão na Maquininha</h3>
+            <div style="text-align:center;font-size:60px;margin:10px 0;">📟</div>
+            <p style="text-align:center;color:#555;font-size:15px;padding:0 10px;" id="maquininhaStatus">Enviando cobrança para a maquininha...</p>
+            <button class="btn-fechar-pix" onclick="cancelarMaquininha()">✕ Cancelar</button>
         </div>
 
         <div class="pag-acoes">
@@ -475,7 +467,7 @@
             }
             if (id === 'telaPagamento') {
                 atualizarPagamento();
-                document.getElementById('cartaoForm').classList.remove('ativo');
+                document.getElementById('maquininhaArea').classList.remove('ativo');
                 document.getElementById('pixArea').classList.remove('ativo');
                 pagamentoSelecionado = null;
             }
@@ -582,174 +574,97 @@
             }
             if (tipo === 'pix') {
                 processarPIX();
-            } else if (tipo === 'credito' || tipo === 'debito') {
+            } else if (tipo === 'maquininha') {
                 pagamentoSelecionado = tipo;
-                document.getElementById('cartaoForm').classList.add('ativo');
-                document.getElementById('btnPagarCartao').textContent = tipo === 'credito' ? '💳 Pagar com Crédito' : '💳 Pagar com Débito';
-                mostrarToast('Preencha os dados do cartão', '');
+                document.getElementById('maquininhaArea').classList.add('ativo');
+                processarPagamentoMaquininha();
             }
-        }
-
-        function detectarBandeira(numero) {
-            const num = numero.replace(/\s/g, '');
-            if (/^4/.test(num)) return 'visa';
-            if (/^5[1-5]/.test(num) || /^222[1-9]/.test(num) || /^22[3-9]/.test(num) || /^2[3-6][0-9]/.test(num) || /^27[0-1]/.test(num) || /^2720/.test(num)) return 'master';
-            if (/^401178|^401179|^431274|^438935|^451416|^457393|^457631|^457632|^504175|^506699|^5067[0-9]{2}|^509[0-9]{2}|^627780|^636297|^636368/.test(num)) return 'elo';
-            if (/^384100|^387[0-9]{2}|^606282/.test(num)) return 'hipercard';
-            if (/^3[4,7]/.test(num)) return 'amex';
-            return 'visa';
-        }
-
-        document.getElementById('cardCpf').addEventListener('input', function(e) {
-            let value = this.value.replace(/\D/g, '');
-            if (value.length > 11) value = value.slice(0, 11);
-            if (value.length >= 9) {
-                this.value = value.slice(0, 3) + '.' + value.slice(3, 6) + '.' + value.slice(6, 9) + '-' + value.slice(9);
-            } else if (value.length >= 6) {
-                this.value = value.slice(0, 3) + '.' + value.slice(3, 6) + '.' + value.slice(6);
-            } else if (value.length >= 3) {
-                this.value = value.slice(0, 3) + '.' + value.slice(3);
-            } else {
-                this.value = value;
-            }
-        });
-
-        function validarNumeroCartao(numero) {
-            const num = numero.replace(/\s/g, '');
-            if (num.length < 15 || num.length > 16) return false;
-            let sum = 0, alternate = false;
-            for (let i = num.length - 1; i >= 0; i--) {
-                let n = parseInt(num[i], 10);
-                if (alternate) { n *= 2; if (n > 9) n = n - 9; }
-                sum += n;
-                alternate = !alternate;
-            }
-            return sum % 10 === 0;
-        }
-
-        function validarDataValidade(data) {
-            const [mes, ano] = data.split('/');
-            if (!mes || !ano) return false;
-            const mesNum = parseInt(mes), anoNum = parseInt(ano);
-            const anoAtual = new Date().getFullYear() % 100;
-            const mesAtual = new Date().getMonth() + 1;
-            if (mesNum < 1 || mesNum > 12) return false;
-            if (anoNum < anoAtual) return false;
-            if (anoNum === anoAtual && mesNum < mesAtual) return false;
-            return true;
-        }
-
-        function validarCVV(cvv) {
-            return cvv.length >= 3 && cvv.length <= 4 && /^\d+$/.test(cvv);
-        }
-
-        function validarCPF(cpf) {
-            const cpfLimpo = cpf.replace(/\D/g, '');
-            if (cpfLimpo.length !== 11) return false;
-            if (/^(\d)\1{10}$/.test(cpfLimpo)) return false;
-            let soma = 0;
-            for (let i = 0; i < 9; i++) soma += parseInt(cpfLimpo[i]) * (10 - i);
-            let resto = 11 - (soma % 11);
-            if (resto === 10 || resto === 11) resto = 0;
-            if (resto !== parseInt(cpfLimpo[9])) return false;
-            soma = 0;
-            for (let i = 0; i < 10; i++) soma += parseInt(cpfLimpo[i]) * (11 - i);
-            resto = 11 - (soma % 11);
-            if (resto === 10 || resto === 11) resto = 0;
-            if (resto !== parseInt(cpfLimpo[10])) return false;
-            return true;
         }
 
         // ================================================================
-        // PROCESSAR PAGAMENTO COM CARTÃO
+        // PROCESSAR PAGAMENTO NA MAQUININHA (Point)
         // ================================================================
-        async function processarPagamentoCartao() {
-            const cardNumber = document.getElementById('cardNumber').value.replace(/\s/g, '');
-            const cardName = document.getElementById('cardName').value.trim();
-            const cardExpiry = document.getElementById('cardExpiry').value;
-            const cardCvv = document.getElementById('cardCvv').value;
-            const cpf = document.getElementById('cardCpf').value.trim();
+        // Identificador da maquininha Point Smart 2 vinculada à conta.
+        const POINT_DEVICE_ID = 'NEWLAND_N950__N950NCD300216381';
+        let maquininhaPagamentoId = null;
+        let intervaloMaquininha = null;
 
-            if (!validarNumeroCartao(cardNumber)) { mostrarToast('⚠️ Número de cartão inválido!', 'erro'); return; }
-            if (!cardName || cardName.length < 3) { mostrarToast('⚠️ Digite o nome completo no cartão!', 'erro'); return; }
-            if (!validarDataValidade(cardExpiry)) { mostrarToast('⚠️ Data de validade inválida!', 'erro'); return; }
-            if (!validarCVV(cardCvv)) { mostrarToast('⚠️ CVV inválido!', 'erro'); return; }
-            if (!validarCPF(cpf)) { mostrarToast('⚠️ CPF inválido! Digite um CPF válido (000.000.000-00).', 'erro'); return; }
-
-            const btn = document.getElementById('btnPagarCartao');
-            btn.disabled = true;
-            btn.textContent = '⏳ Processando...';
-
+        async function processarPagamentoMaquininha() {
+            document.getElementById('maquininhaStatus').textContent = 'Enviando cobrança para a maquininha...';
             try {
-                const total = carrinho.reduce((s, i) => s + (i.preco * i.qtd), 0);
-                const [mes, ano] = cardExpiry.split('/');
-                const bandeira = detectarBandeira(cardNumber);
-                console.log('💳 Bandeira detectada:', bandeira);
-
-                const tokenResponse = await mp.createCardToken({
-                    cardNumber: cardNumber,
-                    cardholderName: cardName,
-                    cardExpirationMonth: mes,
-                    cardExpirationYear: '20' + ano,
-                    securityCode: cardCvv,
-                    identificationType: 'CPF',
-                    identificationNumber: cpf.replace(/\D/g, '')
-                });
-
-                if (!tokenResponse || !tokenResponse.id) {
-                    mostrarToast('❌ Erro ao gerar token do cartão!', 'erro');
-                    btn.disabled = false;
-                    btn.textContent = pagamentoSelecionado === 'credito' ? '💳 Pagar com Crédito' : '💳 Pagar com Débito';
-                    return;
-                }
-
                 const itens = carrinho.map(i => ({ codigo: i.codigo, qtd: i.qtd }));
-
-                const response = await fetch(`${BACKEND_URL}/criar-pagamento`, {
+                const resp = await fetch(`${BACKEND_URL}/criar-pagamento-point`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        itens: itens,
-                        token: tokenResponse.id,
-                        descricao: `Compra RV Express - ${new Date().toLocaleString()}`,
-                        payment_method_id: bandeira,
-                        email: 'cliente@rvexpress.com',
-                        cpf: cpf.replace(/\D/g, ''),
-                        nome: cardName,
-                        deviceId: (typeof window.MP_DEVICE_SESSION_ID !== 'undefined') ? window.MP_DEVICE_SESSION_ID : ''
-                    })
+                    body: JSON.stringify({ deviceId: POINT_DEVICE_ID, itens: itens })
                 });
+                const data = await resp.json();
 
-                const data = await response.json();
-
-                if (!response.ok) {
-                    mostrarToast(`❌ Erro: ${data.erro || 'Falha na comunicação com o servidor'}`, 'erro');
-                    btn.disabled = false;
-                    btn.textContent = pagamentoSelecionado === 'credito' ? '💳 Pagar com Crédito' : '💳 Pagar com Débito';
+                if (!resp.ok || !data.id) {
+                    document.getElementById('maquininhaStatus').textContent = `❌ Erro: ${data.erro || 'Falha ao enviar cobrança'}`;
+                    mostrarToast('❌ Erro ao enviar cobrança para a maquininha', 'erro');
                     return;
                 }
 
-                if (data.status === 'approved') {
-                    mostrarToast(`✅ Pagamento aprovado! ID: ${data.id}`, 'sucesso');
-                    finalizarCompra(pagamentoSelecionado === 'credito' ? 'Cartão de Crédito' : 'Cartão de Débito', data.id);
-                } else if (data.status === 'in_process' || data.status === 'pending') {
-                    mostrarToast(`⏳ Pagamento em análise pelo Mercado Pago. Aguarde alguns instantes e consulte o status antes de repetir a compra.`, '');
-                    btn.disabled = false;
-                    btn.textContent = pagamentoSelecionado === 'credito' ? '💳 Pagar com Crédito' : '💳 Pagar com Débito';
-                } else {
-                    const mensagemErro = data.status_detail || data.message || data.erro || 'Tente novamente';
-                    mostrarToast(`❌ Pagamento recusado: ${mensagemErro}`, 'erro');
-                    btn.disabled = false;
-                    btn.textContent = pagamentoSelecionado === 'credito' ? '💳 Pagar com Crédito' : '💳 Pagar com Débito';
-                }
+                maquininhaPagamentoId = data.id;
+                document.getElementById('maquininhaStatus').textContent = 'Aproxime, insira ou passe o cartão na maquininha...';
+                iniciarVerificacaoMaquininha();
             } catch (error) {
                 console.error('Erro:', error);
-                const detalheErro = (error && error.message) ? error.message : 'Tente novamente';
-                mostrarToast(`❌ Erro no processamento: ${detalheErro}`, 'erro');
-                btn.disabled = false;
-                btn.textContent = pagamentoSelecionado === 'credito' ? '💳 Pagar com Crédito' : '💳 Pagar com Débito';
+                document.getElementById('maquininhaStatus').textContent = '❌ Erro de conexão. Tente novamente.';
+                mostrarToast('❌ Erro ao conectar com a maquininha', 'erro');
             }
         }
+
+        // Verifica de verdade, junto ao Mercado Pago, se o pagamento na
+        // maquininha já foi concluído. Consulta a cada 3 segundos.
+        function iniciarVerificacaoMaquininha() {
+            let tentativas = 0;
+            const MAX_TENTATIVAS = 100; // 100 x 3s = 5 minutos
+
+            clearInterval(intervaloMaquininha);
+            intervaloMaquininha = setInterval(async () => {
+                tentativas++;
+                if (tentativas > MAX_TENTATIVAS) {
+                    clearInterval(intervaloMaquininha);
+                    document.getElementById('maquininhaStatus').textContent = '⏱️ Tempo esgotado. Tente novamente.';
+                    mostrarToast('⏱️ Tempo esgotado na maquininha', 'erro');
+                    return;
+                }
+                try {
+                    const resp = await fetch(`${BACKEND_URL}/point/pagamento/${POINT_DEVICE_ID}/${maquininhaPagamentoId}`);
+                    const data = await resp.json();
+                    if (!resp.ok) return;
+
+                    if (data.state === 'FINISHED') {
+                        clearInterval(intervaloMaquininha);
+                        document.getElementById('maquininhaStatus').textContent = '✅ Pagamento aprovado!';
+                        mostrarToast('✅ Pagamento aprovado na maquininha!', 'sucesso');
+                        finalizarCompra('Cartão (Maquininha)', maquininhaPagamentoId);
+                    } else if (data.state === 'CANCELED' || data.state === 'ERROR') {
+                        clearInterval(intervaloMaquininha);
+                        document.getElementById('maquininhaStatus').textContent = '❌ Pagamento cancelado ou recusado.';
+                        mostrarToast('❌ Pagamento não foi concluído na maquininha', 'erro');
+                    }
+                    // se for OPEN ou ON_TERMINAL, continua esperando
+                } catch (e) {
+                    // falha de rede momentânea: ignora e tenta de novo na próxima rodada
+                }
+            }, 3000);
+        }
+
+        async function cancelarMaquininha() {
+            clearInterval(intervaloMaquininha);
+            if (maquininhaPagamentoId) {
+                try {
+                    await fetch(`${BACKEND_URL}/point/pagamento/${POINT_DEVICE_ID}/${maquininhaPagamentoId}/cancelar`, { method: 'POST' });
+                } catch (e) {}
+            }
+            maquininhaPagamentoId = null;
+            document.getElementById('maquininhaArea').classList.remove('ativo');
+            mostrarToast('Cobrança cancelada', '');
+        }
+
 
         // ================================================================
         // PROCESSAR PAGAMENTO PIX - VERSÃO ESTÁVEL
@@ -801,7 +716,7 @@
                     pixCodigoAtual = data.qr_code || '';
                     codigoEl.textContent = pixCodigoAtual;
 
-                    document.getElementById('cartaoForm').classList.remove('ativo');
+                    document.getElementById('maquininhaArea').classList.remove('ativo');
                     mostrarToast('✅ QR Code PIX gerado! Aguardando pagamento...', 'sucesso');
 
                     iniciarVerificacaoPix(data.id);
@@ -885,12 +800,7 @@
             carrinho = [];
             atualizarInterface();
             irTela('telaComprovante');
-            document.getElementById('cartaoForm').classList.remove('ativo');
-            document.getElementById('cardNumber').value = '';
-            document.getElementById('cardName').value = '';
-            document.getElementById('cardExpiry').value = '';
-            document.getElementById('cardCvv').value = '';
-            document.getElementById('cardCpf').value = '';
+            document.getElementById('maquininhaArea').classList.remove('ativo');
             fecharPix();
         }
 
@@ -915,33 +825,6 @@
             if (idPagamento) pagamentoInfo += ` (ID: ${idPagamento})`;
             document.getElementById('pagamentoInfo').textContent = pagamentoInfo;
         }
-
-        document.getElementById('cardNumber').addEventListener('input', function(e) {
-            let value = this.value.replace(/\D/g, '');
-            if (value.length > 16) value = value.slice(0, 16);
-            let formatted = '';
-            for (let i = 0; i < value.length; i++) {
-                if (i > 0 && i % 4 === 0) formatted += ' ';
-                formatted += value[i];
-            }
-            this.value = formatted;
-        });
-
-        document.getElementById('cardExpiry').addEventListener('input', function(e) {
-            let value = this.value.replace(/\D/g, '');
-            if (value.length > 4) value = value.slice(0, 4);
-            if (value.length >= 2) {
-                this.value = value.slice(0, 2) + '/' + value.slice(2);
-            } else {
-                this.value = value;
-            }
-        });
-
-        document.getElementById('cardCvv').addEventListener('input', function(e) {
-            let value = this.value.replace(/\D/g, '');
-            if (value.length > 4) value = value.slice(0, 4);
-            this.value = value;
-        });
 
         let timeoutCodigo = null;
         let ultimoCodigoLido = '';
