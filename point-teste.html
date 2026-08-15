@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teste Maquininha Point</title>
+<style>
+    body { font-family: Arial, sans-serif; background: #1a1a2e; color: white; padding: 20px; }
+    button { background: #e63946; color: white; border: none; padding: 16px 24px; font-size: 18px; border-radius: 10px; width: 100%; margin: 10px 0; }
+    button:disabled { opacity: 0.5; }
+    #resultado { background: #16213e; padding: 15px; border-radius: 10px; margin-top: 15px; white-space: pre-wrap; word-break: break-all; font-size: 13px; }
+    .status { font-size: 20px; text-align: center; margin: 15px 0; }
+</style>
+</head>
+<body>
+    <h2>🧪 Teste da Maquininha Point</h2>
+    <p>Device ID: <code>NEWLAND_N950__N950NCD300216381</code></p>
+    <p>Vai enviar uma cobrança de teste de <strong>R$ 6,50</strong> (Coca-Cola) pra maquininha.</p>
+
+    <button id="btnEnviar" onclick="enviarCobranca()">📤 Enviar cobrança de teste</button>
+    <button id="btnConsultar" onclick="consultarStatus()" disabled>🔄 Consultar status</button>
+    <button id="btnCancelar" onclick="cancelarCobranca()" disabled>❌ Cancelar cobrança</button>
+
+    <div class="status" id="status"></div>
+    <div id="resultado">Aguardando...</div>
+
+    <script>
+        const BACKEND_URL = 'https://rv-express-backend.onrender.com';
+        const DEVICE_ID = 'NEWLAND_N950__N950NCD300216381';
+        let paymentIntentId = null;
+
+        function mostrar(obj) {
+            document.getElementById('resultado').textContent = JSON.stringify(obj, null, 2);
+        }
+
+        async function enviarCobranca() {
+            document.getElementById('status').textContent = '⏳ Enviando...';
+            document.getElementById('btnEnviar').disabled = true;
+            try {
+                const resp = await fetch(`${BACKEND_URL}/criar-pagamento-point`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        deviceId: DEVICE_ID,
+                        itens: [{ codigo: '7891000123456', qtd: 1 }]
+                    })
+                });
+                const data = await resp.json();
+                mostrar(data);
+                if (resp.ok && data.id) {
+                    paymentIntentId = data.id;
+                    document.getElementById('status').textContent = '✅ Enviado! Verifique a maquininha agora.';
+                    document.getElementById('btnConsultar').disabled = false;
+                    document.getElementById('btnCancelar').disabled = false;
+                } else {
+                    document.getElementById('status').textContent = '❌ Erro ao enviar (veja detalhes abaixo)';
+                }
+            } catch (e) {
+                mostrar({ erro: e.message });
+                document.getElementById('status').textContent = '❌ Erro de conexão';
+            }
+            document.getElementById('btnEnviar').disabled = false;
+        }
+
+        async function consultarStatus() {
+            if (!paymentIntentId) return;
+            document.getElementById('status').textContent = '⏳ Consultando...';
+            try {
+                const resp = await fetch(`${BACKEND_URL}/point/pagamento/${DEVICE_ID}/${paymentIntentId}`);
+                const data = await resp.json();
+                mostrar(data);
+                document.getElementById('status').textContent = `📊 Status: ${data.state || data.status || 'desconhecido'}`;
+            } catch (e) {
+                mostrar({ erro: e.message });
+            }
+        }
+
+        async function cancelarCobranca() {
+            if (!paymentIntentId) return;
+            try {
+                await fetch(`${BACKEND_URL}/point/pagamento/${DEVICE_ID}/${paymentIntentId}/cancelar`, { method: 'POST' });
+                document.getElementById('status').textContent = '🚫 Cancelado';
+                document.getElementById('btnConsultar').disabled = true;
+                document.getElementById('btnCancelar').disabled = true;
+            } catch (e) {
+                mostrar({ erro: e.message });
+            }
+        }
+    </script>
+</body>
+</html>
