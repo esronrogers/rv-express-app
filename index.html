@@ -234,11 +234,11 @@
     <div id="telaBoasVindas" class="tela ativa">
         <button class="btn-admin" onclick="irTela('telaLoginAdmin')">⚙️ Administrar</button>
         <div class="logo">🏪</div>
-        <h1>EXPRESS</h1>
+        <h1>RV EXPRESS</h1>
         <div class="sub">MERCADINHO 24 HORAS</div>
         <div class="bem-vindo">Seja bem-vindo!</div>
         <div class="descricao">Aqui você encontra bebidas geladas, snacks e conveniências a qualquer hora do dia.</div>
-        <div class="descricao" style="font-size:18px;margin-bottom:15px;font-weight:bold;">🔥 Está com fome ou sede? Pegou, pagou, é seu!</div>
+        <div class="descricao" style="font-size:18px;margin-bottom:15px;font-weight:bold;">Está com fome ou sede? Pegou, pagou, é seu!</div>
         <button class="btn-iniciar" onclick="irTela('telaEscaneamento')">🛒 INICIAR COMPRA</button>
         <div class="seguro">🔒 Compra 100% segura • Seus dados protegidos</div>
     </div>
@@ -308,8 +308,8 @@
 
         <div class="cartao-form" id="maquininhaArea">
             <h3 style="margin-bottom:12px;color:#333;font-size:17px;text-align:center;">💳 Cartão na Maquininha</h3>
-            <div style="text-align:center;font-size:60px;margin:10px 0;">📟</div>
-            <p style="text-align:center;color:#555;font-size:15px;padding:0 10px;" id="maquininhaStatus">Enviando cobrança para a maquininha...</p>
+            <div style="text-align:center;font-size:70px;margin:10px 0;">📱💳</div>
+            <p style="text-align:center;color:#e63946;font-size:22px;font-weight:800;padding:0 10px;line-height:1.3;" id="maquininhaStatus">Enviando cobrança para a maquininha...</p>
             <button class="btn-fechar-pix" onclick="cancelarMaquininha()">✕ Cancelar</button>
         </div>
 
@@ -374,6 +374,34 @@
     <!-- =============================== -->
     <!-- SCRIPT -->
     <!-- =============================== -->
+    <!-- ===== MODAL DE CONFIRMAÇÃO PRÓPRIO (sem mostrar nome do site) ===== -->
+    <div class="modal-overlay" id="modalConfirmar">
+        <div class="modal-box" style="max-width:340px;text-align:center;">
+            <p id="modalConfirmarTexto" style="font-size:17px;color:#333;margin-bottom:20px;line-height:1.4;"></p>
+            <div class="modal-acoes">
+                <button class="btn-cancelar-modal" onclick="fecharModalConfirmar(false)">Cancelar</button>
+                <button class="btn-salvar" onclick="fecharModalConfirmar(true)">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let modalConfirmarCallback = null;
+
+        function confirmarAcao(mensagem, callback) {
+            document.getElementById('modalConfirmarTexto').textContent = mensagem;
+            modalConfirmarCallback = callback;
+            document.getElementById('modalConfirmar').classList.add('ativa');
+        }
+
+        function fecharModalConfirmar(confirmado) {
+            document.getElementById('modalConfirmar').classList.remove('ativa');
+            const callback = modalConfirmarCallback;
+            modalConfirmarCallback = null;
+            if (confirmado && callback) callback();
+        }
+    </script>
+
     <script>
         const MP_PUBLIC_KEY = 'APP_USR-3a3dd608-1370-494f-b7f7-41b031996d0c';
         const BACKEND_URL = 'https://rv-express-backend.onrender.com';
@@ -500,20 +528,27 @@
 
         function limparCarrinho() {
             if (carrinho.length === 0) return;
-            if (confirm('🗑️ Limpar todo o carrinho?')) { carrinho = []; atualizarInterface(); mostrarToast('Carrinho limpo', ''); }
+            confirmarAcao('🗑️ Limpar todo o carrinho?', () => {
+                carrinho = []; atualizarInterface(); mostrarToast('Carrinho limpo', '');
+            });
         }
 
         function cancelarCompra() {
             if (carrinho.length === 0) { irTela('telaEscaneamento'); return; }
-            if (confirm('❌ Cancelar compra e esvaziar carrinho?')) { carrinho = []; atualizarInterface(); irTela('telaEscaneamento'); mostrarToast('Compra cancelada', ''); }
+            confirmarAcao('❌ Cancelar compra e esvaziar carrinho?', () => {
+                carrinho = []; atualizarInterface(); irTela('telaEscaneamento'); mostrarToast('Compra cancelada', '');
+            });
         }
 
         function cancelarCompraInicio() {
             if (carrinho.length === 0) { voltarInicio(); return; }
-            if (confirm('❌ Cancelar compra e esvaziar carrinho?')) { voltarInicio(); mostrarToast('Compra cancelada', ''); }
+            confirmarAcao('❌ Cancelar compra e esvaziar carrinho?', () => {
+                voltarInicio(); mostrarToast('Compra cancelada', '');
+            });
         }
 
         function voltarInicio() {
+            clearTimeout(timeoutComprovante);
             carrinho = [];
             atualizarInterface();
             irTela('telaBoasVindas');
@@ -792,6 +827,8 @@
             }
         }
 
+        let timeoutComprovante = null;
+
         function finalizarCompra(tipoPagamento, idPagamento = '') {
             const total = carrinho.reduce((s, i) => s + (i.preco * i.qtd), 0);
             const itensCarrinho = [...carrinho];
@@ -802,6 +839,13 @@
             irTela('telaComprovante');
             document.getElementById('maquininhaArea').classList.remove('ativo');
             fecharPix();
+
+            // Volta sozinho pra tela inicial depois de 10 segundos,
+            // caso o cliente não toque em "FINALIZAR" manualmente.
+            clearTimeout(timeoutComprovante);
+            timeoutComprovante = setTimeout(() => {
+                voltarInicio();
+            }, 10000);
         }
 
         function gerarComprovante(tipoPagamento, itens, idPagamento = '') {
@@ -959,22 +1003,23 @@
             container.innerHTML = html;
         }
 
-        async function resetarProdutos() {
-            if (!confirm('🔄 Isso vai restaurar os produtos padrão do servidor e APAGAR todos os produtos que você adicionou! Confirmar?')) return;
-            try {
-                const resp = await fetch(`${BACKEND_URL}/produtos/restaurar-padrao`, {
-                    method: 'POST',
-                    headers: { 'x-admin-key': senhaAdminAtual }
-                });
-                const data = await resp.json();
-                if (!resp.ok) { mostrarToast(`❌ ${data.erro || 'Erro ao restaurar produtos'}`, 'erro'); return; }
-                produtosDB = data.produtos;
-                salvarCacheLocal();
-                renderizarListaAdmin();
-                mostrarToast('✅ Produtos restaurados com sucesso!', 'sucesso');
-            } catch (e) {
-                mostrarToast('❌ Sem conexão com o servidor. Tente novamente.', 'erro');
-            }
+        function resetarProdutos() {
+            confirmarAcao('🔄 Isso vai restaurar os produtos padrão do servidor e APAGAR todos os produtos que você adicionou! Confirmar?', async () => {
+                try {
+                    const resp = await fetch(`${BACKEND_URL}/produtos/restaurar-padrao`, {
+                        method: 'POST',
+                        headers: { 'x-admin-key': senhaAdminAtual }
+                    });
+                    const data = await resp.json();
+                    if (!resp.ok) { mostrarToast(`❌ ${data.erro || 'Erro ao restaurar produtos'}`, 'erro'); return; }
+                    produtosDB = data.produtos;
+                    salvarCacheLocal();
+                    renderizarListaAdmin();
+                    mostrarToast('✅ Produtos restaurados com sucesso!', 'sucesso');
+                } catch (e) {
+                    mostrarToast('❌ Sem conexão com o servidor. Tente novamente.', 'erro');
+                }
+            });
         }
 
         let modalEditandoId = null;
@@ -1056,24 +1101,25 @@
             }
         }
 
-        async function confirmarExcluir(id) {
+        function confirmarExcluir(id) {
             const produto = buscarProdutoPorId(id);
             if (!produto) return;
-            if (!confirm('🗑️ Tem certeza que deseja excluir este produto?')) return;
-            try {
-                const resp = await fetch(`${BACKEND_URL}/produtos/${encodeURIComponent(produto.codigo)}`, {
-                    method: 'DELETE',
-                    headers: { 'x-admin-key': senhaAdminAtual }
-                });
-                const data = await resp.json();
-                if (!resp.ok) { mostrarToast(`❌ ${data.erro || 'Erro ao excluir produto'}`, 'erro'); return; }
-                produtosDB = data.produtos.map((p, i) => ({ id: p.id ?? (100 + i), ...p }));
-                salvarCacheLocal();
-                renderizarListaAdmin();
-                mostrarToast(`🗑️ ${produto.nome} excluído!`, '');
-            } catch (e) {
-                mostrarToast('❌ Sem conexão com o servidor. Tente novamente.', 'erro');
-            }
+            confirmarAcao('🗑️ Tem certeza que deseja excluir este produto?', async () => {
+                try {
+                    const resp = await fetch(`${BACKEND_URL}/produtos/${encodeURIComponent(produto.codigo)}`, {
+                        method: 'DELETE',
+                        headers: { 'x-admin-key': senhaAdminAtual }
+                    });
+                    const data = await resp.json();
+                    if (!resp.ok) { mostrarToast(`❌ ${data.erro || 'Erro ao excluir produto'}`, 'erro'); return; }
+                    produtosDB = data.produtos.map((p, i) => ({ id: p.id ?? (100 + i), ...p }));
+                    salvarCacheLocal();
+                    renderizarListaAdmin();
+                    mostrarToast(`🗑️ ${produto.nome} excluído!`, '');
+                } catch (e) {
+                    mostrarToast('❌ Sem conexão com o servidor. Tente novamente.', 'erro');
+                }
+            });
         }
 
         function excluirProdutoModal() {
