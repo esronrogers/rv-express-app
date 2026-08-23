@@ -22,6 +22,8 @@
         #telaBoasVindas.ativa { display: flex; }
         .btn-admin { position: absolute; top: 15px; right: 15px; background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3); padding: 10px 18px; border-radius: 20px; font-size: 16px; cursor: pointer; transition: all 0.3s; backdrop-filter: blur(5px); z-index: 10; }
         .btn-admin:active { transform: scale(0.95); background: rgba(255,255,255,0.3); }
+        .btn-sair-app { position: absolute; top: 60px; right: 15px; background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.85); border: 1px solid rgba(255,255,255,0.25); padding: 5px 10px; border-radius: 14px; font-size: 11px; cursor: pointer; z-index: 10; }
+        .btn-sair-app:active { transform: scale(0.95); background: rgba(255,255,255,0.25); }
         #telaBoasVindas .logo { font-size: 60px; margin-bottom: 10px; }
         #telaBoasVindas h1 { color: white; font-size: 38px; font-weight: 900; letter-spacing: 2px; }
         #telaBoasVindas .sub { color: rgba(255,255,255,0.9); font-size: 18px; margin-bottom: 15px; }
@@ -233,6 +235,7 @@
     <!-- ===== TELA 1 - BOAS-VINDAS ===== -->
     <div id="telaBoasVindas" class="tela ativa">
         <button class="btn-admin" onclick="irTela('telaLoginAdmin')">⚙️ Administrar</button>
+        <button class="btn-sair-app" onclick="abrirModalSairApp()">🔒 Fechar app</button>
         <div class="logo">🏪</div>
         <h1>RV EXPRESS</h1>
         <div class="sub">MERCADINHO 24 HORAS</div>
@@ -253,7 +256,7 @@
             <span class="icone">📷</span>
             <h2>ESCANEE SEU PRODUTO</h2>
             <p>Aproxime o código de barras do leitor para adicionar o produto ao carrinho.</p>
-            <input type="text" id="codigoBarra" placeholder="Digite ou escaneie o código...">
+            <input type="text" id="codigoBarra" inputmode="none" placeholder="Digite ou escaneie o código...">
             <div class="status-bip" id="statusBip">⏳ Aguardando leitura...</div>
             <div class="dica">💡 Dica: Mantenha o produto a cerca de 10 a 20 cm do leitor até ouvir o bip.</div>
         </div>
@@ -385,6 +388,19 @@
         </div>
     </div>
 
+    <!-- ===== MODAL DE SENHA PARA FECHAR O APLICATIVO ===== -->
+    <div class="modal-overlay" id="modalSairApp">
+        <div class="modal-box" style="max-width:320px;text-align:center;">
+            <h3 style="margin-bottom:14px;color:#333;font-size:17px;">🔒 Fechar o aplicativo</h3>
+            <p style="font-size:14px;color:#666;margin-bottom:14px;">Digite a senha de administrador para confirmar</p>
+            <input type="password" id="senhaSairApp" placeholder="••••••••" maxlength="20" style="width:100%;padding:12px;border:2px solid #ddd;border-radius:10px;font-size:16px;text-align:center;margin-bottom:14px;box-sizing:border-box;">
+            <div class="modal-acoes">
+                <button class="btn-cancelar-modal" onclick="fecharModalSairApp()">Cancelar</button>
+                <button class="btn-salvar" onclick="confirmarSairApp()">Sair</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let modalConfirmarCallback = null;
 
@@ -399,6 +415,32 @@
             const callback = modalConfirmarCallback;
             modalConfirmarCallback = null;
             if (confirmado && callback) callback();
+        }
+
+        function abrirModalSairApp() {
+            document.getElementById('senhaSairApp').value = '';
+            document.getElementById('modalSairApp').classList.add('ativa');
+            setTimeout(() => document.getElementById('senhaSairApp').focus(), 300);
+        }
+
+        function fecharModalSairApp() {
+            document.getElementById('modalSairApp').classList.remove('ativa');
+        }
+
+        function confirmarSairApp() {
+            const senha = document.getElementById('senhaSairApp').value;
+            if (senha !== SENHA_ADMIN) {
+                mostrarToast('❌ Senha incorreta', 'erro');
+                return;
+            }
+            fecharModalSairApp();
+            // Tenta fechar o app. Em alguns aparelhos/Android isso encerra
+            // o aplicativo; em outros, só é possível minimizar/voltar
+            // manualmente (limitação do próprio sistema, não do app).
+            window.close();
+            setTimeout(() => {
+                mostrarToast('Feche o app pelo botão de apps recentes do aparelho', '');
+            }, 400);
         }
     </script>
 
@@ -1129,6 +1171,38 @@
 
 
         carregarProdutos();
+
+        // ================================================================
+        // MANTER A TELA SEMPRE LIGADA (Wake Lock) — importante pro
+        // totem 24h, pra tela nunca apagar sozinha por inatividade.
+        // ================================================================
+        let wakeLock = null;
+
+        async function manterTelaLigada() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    wakeLock.addEventListener('release', () => {
+                        console.log('🔓 Wake Lock liberado (provavelmente a tela mudou de aba/minimizou)');
+                    });
+                    console.log('🔒 Tela configurada para não apagar sozinha.');
+                } else {
+                    console.log('⚠️ Este navegador/APK não suporta Wake Lock — a tela pode apagar normalmente pelas configurações do aparelho.');
+                }
+            } catch (erro) {
+                console.log('⚠️ Não foi possível manter a tela ligada:', erro.message);
+            }
+        }
+
+        manterTelaLigada();
+
+        // O Wake Lock é liberado automaticamente quando o app perde o
+        // foco (ex: troca de app). Ao voltar, pedimos de novo.
+        document.addEventListener('visibilitychange', async () => {
+            if (document.visibilityState === 'visible') {
+                manterTelaLigada();
+            }
+        });
 
         console.log('🚀 RV EXPRESS - Autoatendimento carregado!');
         console.log('💳 Backend:', BACKEND_URL);
