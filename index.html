@@ -195,6 +195,8 @@
         .modal-acoes .btn-cancelar-modal { background: #ecf0f1; color: #555; }
         .modal-acoes .btn-excluir-modal { background: #e74c3c; color: white; display: none; }
         .toast { position: fixed; top: 15px; left: 50%; transform: translateX(-50%) translateY(-100px); background: #2c3e50; color: white; padding: 12px 24px; border-radius: 30px; font-size: 15px; font-weight: bold; z-index: 1000; transition: all 0.4s ease; box-shadow: 0 4px 20px rgba(0,0,0,0.3); text-align: center; max-width: 90%; }
+        .banner-offline { display: none; position: fixed; top: 0; left: 0; width: 100%; background: #c0392b; color: white; text-align: center; padding: 10px 15px; font-size: 14px; font-weight: bold; z-index: 2000; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
+        .banner-offline.ativo { display: block; }
         .toast.show { transform: translateX(-50%) translateY(0); }
         .toast.sucesso { background: #27ae60; }
         .toast.erro { background: #e74c3c; }
@@ -231,6 +233,7 @@
 <body>
 
     <div id="toast" class="toast"></div>
+    <div id="bannerOffline" class="banner-offline">📡 Sem conexão com a internet — os pagamentos não vão funcionar até a conexão voltar</div>
 
     <!-- ===== TELA 1 - BOAS-VINDAS ===== -->
     <div id="telaBoasVindas" class="tela ativa">
@@ -491,6 +494,7 @@
                     produtosDB = JSON.parse(JSON.stringify(PRODUTOS_PADRAO));
                 }
                 produtosDB.forEach(p => { if (p.id >= proximoId) proximoId = p.id + 1; });
+                mostrarToast('⚠️ Sem conexão — mostrando catálogo salvo. Pagamentos podem não funcionar agora.', 'erro');
             }
             atualizarInterface();
             if (document.getElementById('telaAdmin').classList.contains('ativa')) renderizarListaAdmin();
@@ -647,6 +651,10 @@
         function escolherPagamento(tipo) {
             if (carrinho.length === 0) {
                 mostrarToast('Carrinho vazio!', 'erro');
+                return;
+            }
+            if (!conexaoOk) {
+                mostrarToast('📡 Sem conexão com a internet. Aguarde a conexão voltar para pagar.', 'erro');
                 return;
             }
             if (tipo === 'pix') {
@@ -875,6 +883,7 @@
             const total = carrinho.reduce((s, i) => s + (i.preco * i.qtd), 0);
             const itensCarrinho = [...carrinho];
             salvarVendaNoGoogleSheets(itensCarrinho, total, tipoPagamento, idPagamento);
+            notificarVendaWhatsapp(itensCarrinho, total, tipoPagamento);
             gerarComprovante(tipoPagamento, itensCarrinho, idPagamento);
             carrinho = [];
             atualizarInterface();
@@ -888,6 +897,16 @@
             timeoutComprovante = setTimeout(() => {
                 voltarInicio();
             }, 10000);
+        }
+
+        // Avisa os sócios por WhatsApp sobre a venda. Não trava nem
+        // afeta a compra caso falhe — é só um aviso extra.
+        function notificarVendaWhatsapp(itens, total, tipoPagamento) {
+            fetch(`${BACKEND_URL}/notificar-venda`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ itens, total, tipoPagamento })
+            }).catch(e => console.warn('⚠️ Não foi possível notificar por WhatsApp:', e.message));
         }
 
         function gerarComprovante(tipoPagamento, itens, idPagamento = '') {
@@ -1207,6 +1226,41 @@
         console.log('🚀 RV EXPRESS - Autoatendimento carregado!');
         console.log('💳 Backend:', BACKEND_URL);
         console.log('📱 PIX com QR Code real ativado!');
+
+        // ================================================================
+        // AVISO DE SEM CONEXÃO — o navegador só sabe dizer se o Wi-Fi
+        // está ligado, não se a internet realmente funciona. Por isso,
+        // além de escutar online/offline, testamos de verdade se o
+        // servidor responde, a cada 20 segundos.
+        // ================================================================
+        let conexaoOk = true;
+
+        function mostrarBannerOffline(mostrar) {
+            conexaoOk = !mostrar;
+            document.getElementById('bannerOffline').classList.toggle('ativo', mostrar);
+        }
+
+        async function verificarConexaoReal() {
+            if (!navigator.onLine) {
+                mostrarBannerOffline(true);
+                return;
+            }
+            try {
+                const controlador = new AbortController();
+                const timeout = setTimeout(() => controlador.abort(), 5000);
+                const resp = await fetch(`${BACKEND_URL}/`, { signal: controlador.signal });
+                clearTimeout(timeout);
+                mostrarBannerOffline(!resp.ok);
+            } catch (e) {
+                mostrarBannerOffline(true);
+            }
+        }
+
+        window.addEventListener('online', verificarConexaoReal);
+        window.addEventListener('offline', () => mostrarBannerOffline(true));
+
+        verificarConexaoReal();
+        setInterval(verificarConexaoReal, 20000);
     </script>
 
 </body>
