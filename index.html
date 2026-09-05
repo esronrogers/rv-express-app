@@ -723,13 +723,45 @@
 
                     if (data.state === 'FINISHED') {
                         clearInterval(intervaloMaquininha);
-                        document.getElementById('maquininhaStatus').textContent = '✅ Pagamento aprovado!';
-                        mostrarToast('✅ Pagamento aprovado na maquininha!', 'sucesso');
-                        finalizarCompra('Cartão (Maquininha)', maquininhaPagamentoId);
+
+                        // IMPORTANTE: "FINISHED" só quer dizer que a maquininha
+                        // terminou de processar — não que foi aprovado! Precisamos
+                        // consultar o pagamento de verdade (pelo ID dele) pra saber
+                        // se o banco do cliente aprovou ou recusou.
+                        const idPagamentoReal = data.payment?.id;
+                        if (!idPagamentoReal) {
+                            document.getElementById('maquininhaStatus').textContent = '⚠️ Não foi possível confirmar o pagamento.';
+                            mostrarToast('⚠️ Status incerto — confira o extrato antes de liberar o produto!', 'erro');
+                            return;
+                        }
+
+                        document.getElementById('maquininhaStatus').textContent = 'Confirmando pagamento...';
+                        try {
+                            const respPag = await fetch(`${BACKEND_URL}/pagamento/${idPagamentoReal}`);
+                            const dadosPag = await respPag.json();
+
+                            if (dadosPag.status === 'approved') {
+                                document.getElementById('maquininhaStatus').textContent = '✅ Pagamento aprovado!';
+                                mostrarToast('✅ Pagamento aprovado na maquininha!', 'sucesso');
+                                finalizarCompra('Cartão (Maquininha)', idPagamentoReal);
+                            } else {
+                                document.getElementById('maquininhaStatus').textContent = '❌ Pagamento recusado. Tente outro cartão.';
+                                mostrarToast('❌ Pagamento recusado pela operadora do cartão.', 'erro');
+                                setTimeout(() => {
+                                    document.getElementById('maquininhaArea').classList.remove('ativo');
+                                }, 3000);
+                            }
+                        } catch (e2) {
+                            document.getElementById('maquininhaStatus').textContent = '⚠️ Não foi possível confirmar.';
+                            mostrarToast('⚠️ Erro ao confirmar — verifique manualmente antes de liberar o produto!', 'erro');
+                        }
                     } else if (data.state === 'CANCELED' || data.state === 'ERROR') {
                         clearInterval(intervaloMaquininha);
                         document.getElementById('maquininhaStatus').textContent = '❌ Pagamento cancelado ou recusado.';
                         mostrarToast('❌ Pagamento não foi concluído na maquininha', 'erro');
+                        setTimeout(() => {
+                            document.getElementById('maquininhaArea').classList.remove('ativo');
+                        }, 3000);
                     }
                     // se for OPEN ou ON_TERMINAL, continua esperando
                 } catch (e) {
