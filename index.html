@@ -155,6 +155,13 @@
         .btn-add-produto { background: #27ae60; color: white; }
         .btn-reset-produtos { background: #e67e22; color: white; }
         .admin-lista { background: white; border-radius: 12px; padding: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        .campo-busca-admin { margin-bottom: 10px; }
+        .campo-busca-admin input { width: 100%; padding: 12px 14px; border: 2px solid #ddd; border-radius: 10px; font-size: 15px; box-sizing: border-box; }
+        .bolinha-estoque { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+        .bolinha-vermelha { background: #e63946; }
+        .bolinha-azul { background: #457b9d; }
+        .bolinha-verde { background: #2a9d8f; }
+        .texto-estoque { font-size: 12px; color: #666; }
         .admin-lista .admin-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
         .admin-lista .admin-item:last-child { border-bottom: none; }
         .admin-lista .admin-item .info { flex: 1; }
@@ -233,7 +240,6 @@
 <body>
 
     <div id="toast" class="toast"></div>
-    <div id="bannerOffline" class="banner-offline">📡 Sem conexão com a internet — os pagamentos não vão funcionar até a conexão voltar</div>
 
     <!-- ===== TELA 1 - BOAS-VINDAS ===== -->
     <div id="telaBoasVindas" class="tela ativa">
@@ -360,6 +366,7 @@
         <div class="admin-header"><h2>⚙️ Administração</h2><button class="btn-sair" onclick="sairAdmin()">🚪 Sair</button></div>
         <div class="admin-stats"><div class="stat"><div class="num" id="totalProdutos">0</div><div class="label">📦 Produtos</div></div><div class="stat"><div class="num" id="totalVendas">0</div><div class="label">💰 Vendas (hoje)</div></div></div>
         <div class="admin-actions"><button class="btn-add-produto" onclick="abrirModalProduto()">➕ Adicionar Produto</button><button class="btn-reset-produtos" onclick="resetarProdutos()">🔄 Resetar Padrão</button></div>
+        <div class="campo-busca-admin"><input type="text" id="buscaProdutoAdmin" placeholder="🔍 Buscar produto pelo nome..." oninput="renderizarListaAdmin()"></div>
         <div class="admin-lista" id="adminLista"></div>
     </div>
 
@@ -372,6 +379,7 @@
             <div class="campo"><label>💰 Preço (R$)</label><input type="number" id="modalPreco" placeholder="Ex: 6.50" step="0.01"></div>
             <div class="campo"><label>😊 Emoji (opcional)</label><input type="text" id="modalEmoji" placeholder="Ex: 🥤" maxlength="2"></div>
             <div class="campo"><label>📋 Detalhe (opcional)</label><input type="text" id="modalDetalhe" placeholder="Ex: Lata 350ml"></div>
+            <div class="campo"><label>📦 Quantidade em Estoque</label><input type="number" id="modalEstoque" placeholder="Ex: 20" step="1" min="0"></div>
             <input type="hidden" id="modalId" value="">
             <div class="modal-acoes"><button class="btn-cancelar-modal" onclick="fecharModal()">Cancelar</button><button class="btn-salvar" id="btnSalvarModal" onclick="salvarProdutoModal()">💾 Salvar</button><button class="btn-excluir-modal" id="btnExcluirModal" onclick="excluirProdutoModal()">🗑️ Excluir</button></div>
         </div>
@@ -545,7 +553,7 @@
                 document.getElementById('pixArea').classList.remove('ativo');
                 pagamentoSelecionado = null;
             }
-            if (id === 'telaAdmin') renderizarListaAdmin();
+            if (id === 'telaAdmin') carregarProdutos();
             if (id === 'telaLoginAdmin') {
                 document.getElementById('senhaAdmin').value = '';
                 document.getElementById('erroLogin').classList.remove('visible');
@@ -651,10 +659,6 @@
         function escolherPagamento(tipo) {
             if (carrinho.length === 0) {
                 mostrarToast('Carrinho vazio!', 'erro');
-                return;
-            }
-            if (!conexaoOk) {
-                mostrarToast('📡 Sem conexão com a internet. Aguarde a conexão voltar para pagar.', 'erro');
                 return;
             }
             if (tipo === 'pix') {
@@ -1074,18 +1078,34 @@
 
         function renderizarListaAdmin() {
             const container = document.getElementById('adminLista');
+            const termoBusca = (document.getElementById('buscaProdutoAdmin')?.value || '').trim().toLowerCase();
+            const listaFiltrada = termoBusca
+                ? produtosDB.filter(p => p.nome.toLowerCase().includes(termoBusca))
+                : produtosDB;
+
             document.getElementById('totalProdutos').textContent = produtosDB.length;
+
             if (produtosDB.length === 0) {
                 container.innerHTML = `<div class="admin-vazio"><span class="emoji">📭</span>Nenhum produto cadastrado.<br>Clique em "Adicionar Produto" para começar!</div>`;
                 return;
             }
+            if (listaFiltrada.length === 0) {
+                container.innerHTML = `<div class="admin-vazio"><span class="emoji">🔍</span>Nenhum produto encontrado com esse nome.</div>`;
+                return;
+            }
             let html = '';
-            produtosDB.forEach(p => {
+            listaFiltrada.forEach(p => {
+                const estoque = Number(p.estoque) || 0;
+                let corBolinha = 'bolinha-verde';
+                if (estoque <= 4) corBolinha = 'bolinha-vermelha';
+                else if (estoque <= 8) corBolinha = 'bolinha-azul';
+
                 html += `<div class="admin-item">
                     <div class="info">
                         <div class="nome">${p.imagem || '📦'} ${p.nome}</div>
                         <div class="detalhe">R$ ${p.preco.toFixed(2)} • ${p.detalhe || ''}</div>
                         <div class="codigo">${p.codigo}</div>
+                        <div class="texto-estoque"><span class="bolinha-estoque ${corBolinha}"></span>Estoque: ${estoque} unidade${estoque === 1 ? '' : 's'}</div>
                     </div>
                     <div class="acoes">
                         <button class="btn-editar" onclick="editarProduto(${p.id})">✏️</button>
@@ -1128,6 +1148,7 @@
             document.getElementById('modalPreco').value = '';
             document.getElementById('modalEmoji').value = '';
             document.getElementById('modalDetalhe').value = '';
+            document.getElementById('modalEstoque').value = '20';
             document.getElementById('btnSalvarModal').textContent = '💾 Salvar';
             document.getElementById('btnExcluirModal').style.display = 'none';
             document.getElementById('modalProduto').classList.add('ativa');
@@ -1146,6 +1167,7 @@
             document.getElementById('modalPreco').value = produto.preco;
             document.getElementById('modalEmoji').value = produto.imagem || '';
             document.getElementById('modalDetalhe').value = produto.detalhe || '';
+            document.getElementById('modalEstoque').value = (produto.estoque !== undefined && produto.estoque !== null) ? produto.estoque : '20';
             document.getElementById('btnSalvarModal').textContent = '💾 Atualizar';
             document.getElementById('btnExcluirModal').style.display = 'block';
             document.getElementById('modalProduto').classList.add('ativa');
@@ -1160,11 +1182,14 @@
             const preco = parseFloat(document.getElementById('modalPreco').value);
             const emoji = document.getElementById('modalEmoji').value.trim() || '📦';
             const detalhe = document.getElementById('modalDetalhe').value.trim();
+            const estoqueValor = document.getElementById('modalEstoque').value;
+            const estoque = estoqueValor === '' ? 0 : parseInt(estoqueValor, 10);
             if (!codigo) { mostrarToast('⚠️ Digite o código de barras!', 'erro'); return; }
             if (!nome) { mostrarToast('⚠️ Digite o nome do produto!', 'erro'); return; }
             if (isNaN(preco) || preco <= 0) { mostrarToast('⚠️ Digite um preço válido!', 'erro'); return; }
+            if (isNaN(estoque) || estoque < 0) { mostrarToast('⚠️ Digite uma quantidade de estoque válida!', 'erro'); return; }
 
-            const corpo = { codigo, nome, preco, imagem: emoji, detalhe };
+            const corpo = { codigo, nome, preco, imagem: emoji, detalhe, estoque };
 
             try {
                 let resp;
@@ -1258,41 +1283,6 @@
         console.log('🚀 RV EXPRESS - Autoatendimento carregado!');
         console.log('💳 Backend:', BACKEND_URL);
         console.log('📱 PIX com QR Code real ativado!');
-
-        // ================================================================
-        // AVISO DE SEM CONEXÃO — o navegador só sabe dizer se o Wi-Fi
-        // está ligado, não se a internet realmente funciona. Por isso,
-        // além de escutar online/offline, testamos de verdade se o
-        // servidor responde, a cada 20 segundos.
-        // ================================================================
-        let conexaoOk = true;
-
-        function mostrarBannerOffline(mostrar) {
-            conexaoOk = !mostrar;
-            document.getElementById('bannerOffline').classList.toggle('ativo', mostrar);
-        }
-
-        async function verificarConexaoReal() {
-            if (!navigator.onLine) {
-                mostrarBannerOffline(true);
-                return;
-            }
-            try {
-                const controlador = new AbortController();
-                const timeout = setTimeout(() => controlador.abort(), 5000);
-                const resp = await fetch(`${BACKEND_URL}/`, { signal: controlador.signal });
-                clearTimeout(timeout);
-                mostrarBannerOffline(!resp.ok);
-            } catch (e) {
-                mostrarBannerOffline(true);
-            }
-        }
-
-        window.addEventListener('online', verificarConexaoReal);
-        window.addEventListener('offline', () => mostrarBannerOffline(true));
-
-        verificarConexaoReal();
-        setInterval(verificarConexaoReal, 20000);
     </script>
 
 </body>
