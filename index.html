@@ -683,8 +683,21 @@
         let intervaloMaquininha = null;
 
         async function processarPagamentoMaquininha() {
-            document.getElementById('maquininhaStatus').textContent = 'Enviando cobrança para a maquininha...';
+            document.getElementById('maquininhaStatus').textContent = 'Preparando a maquininha...';
             try {
+                // Antes de mandar uma cobrança nova, tenta limpar qualquer
+                // cobrança antiga que ficou "presa" na fila da maquininha
+                // (ex: cliente desistiu no meio e não cancelou nela).
+                // Isso evita que o próximo cliente fique travado sem
+                // conseguir pagar. Se não houver nada preso, isso não
+                // atrapalha em nada — só ignora o erro e segue.
+                try {
+                    await fetch(`${BACKEND_URL}/point/${POINT_DEVICE_ID}/limpar-fila`, { method: 'POST' });
+                } catch (e) {
+                    // Sem problema se falhar — segue o fluxo normal.
+                }
+
+                document.getElementById('maquininhaStatus').textContent = 'Enviando cobrança para a maquininha...';
                 const itens = carrinho.map(i => ({ codigo: i.codigo, qtd: i.qtd }));
                 const resp = await fetch(`${BACKEND_URL}/criar-pagamento-point`, {
                     method: 'POST',
