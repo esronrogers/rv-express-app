@@ -77,7 +77,7 @@
         .btn-limpar { background: #ecf0f1; border: none; padding: 8px 14px; border-radius: 20px; font-size: 12px; cursor: pointer; color: #7f8c8d; }
         .btn-limpar:active { background: #d5dbdb; }
         .footer-seguro { text-align: center; color: #999; font-size: 10px; margin-top: 8px; flex-shrink: 0; }
-        #telaPagamento { display: none; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; padding: 15px; }
+        #telaPagamento { display: none; flex-direction: column; height: 100vh; height: 100dvh; overflow-y: auto; overflow-x: hidden; padding: 15px; }
         #telaPagamento.ativa { display: flex; }
         .pag-resumo { background: white; border-radius: 14px; padding: 16px; margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); text-align: center; flex-shrink: 0; }
         .pag-resumo .total-grande { font-size: 32px; font-weight: bold; color: #e63946; }
@@ -328,8 +328,8 @@
         </div>
 
         <div class="cartao-form" id="maquininhaArea">
-            <h3 style="margin-bottom:12px;color:#333;font-size:17px;text-align:center;">💳 Cartão na Maquininha</h3>
-            <div style="text-align:center;font-size:70px;margin:10px 0;">📱💳</div>
+            <h3 style="margin-bottom:12px;color:#333;font-size:17px;text-align:center;" id="maquininhaTitulo">💳 Cartão na Maquininha</h3>
+            <div style="text-align:center;font-size:70px;margin:10px 0;" id="maquininhaIcone">📱💳</div>
             <p style="text-align:center;color:#e63946;font-size:30px;font-weight:900;padding:0 10px;line-height:1.35;letter-spacing:0.3px;" id="maquininhaStatus">Enviando cobrança para a maquininha...</p>
             <button class="btn-fechar-pix" onclick="cancelarMaquininha()">✕ Cancelar</button>
         </div>
@@ -692,29 +692,27 @@
         // com passo a passo, quando o pagamento não consegue ser enviado
         // (geralmente porque um cliente anterior desistiu sem cancelar).
         function mostrarInstrucaoMaquininhaTravada() {
+            document.getElementById('maquininhaTitulo').style.display = 'none';
+            document.getElementById('maquininhaIcone').style.display = 'none';
             document.getElementById('maquininhaStatus').innerHTML = `
-                <div style="text-align:center;font-size:24px;font-weight:900;color:#e63946;margin-bottom:10px;">⚠️ ERRO — MAQUININHA TRAVADA</div>
-                <div style="text-align:left;font-size:17px;line-height:1.6;color:#333;font-weight:normal;">
+                <div style="text-align:center;font-size:18px;font-weight:900;color:#e63946;margin-bottom:6px;line-height:1.2;">⚠️ MAQUININHA TRAVADA</div>
+                <div style="text-align:left;font-size:13px;line-height:1.35;color:#333;font-weight:normal;">
                     <strong>1️⃣ VÁ À MAQUININHA</strong><br>
-                    Mão esquerda → primeiro botão lateral.<br>
-                    👉 Pressione para ligar.<br><br>
+                    Mão esquerda → primeiro botão lateral. Pressione para ligar.<br>
                     <strong>2️⃣ TELA ACESA</strong><br>
-                    👉 Pressione ← VOLTAR<br>
-                    👉 Até aparecer essas duas figuras:<br>
-                    <span style="font-size:26px;">🖥️ + 📱</span><br><br>
-                    Se não aparecer:<br>
-                    👉 Toque em <strong>VENDA</strong>.<br>
-                    👉 Aguarde aparecer 🖥️ + 📱.<br><br>
+                    Pressione ← VOLTAR até aparecer:
+                    <span style="font-size:16px;">🖥️ + 📱</span><br>
+                    Se não aparecer: toque em <strong>VENDA</strong> e aguarde 🖥️ + 📱.<br>
                     <strong>3️⃣ VOLTE AO TABLET</strong><br>
-                    👉 Cancele a compra.<br>
-                    👉 Bipe novamente.<br>
-                    👉 Conclua sua compra.<br><br>
-                    <span style="color:#2a9d8f;font-weight:bold;">✅ Pronto!</span>
+                    Cancele a compra, bipe novamente e conclua sua compra.
+                    <div style="color:#2a9d8f;font-weight:bold;margin-top:4px;">✅ Pronto!</div>
                 </div>
             `;
         }
 
         async function processarPagamentoMaquininha() {
+            document.getElementById('maquininhaTitulo').style.display = '';
+            document.getElementById('maquininhaIcone').style.display = '';
             document.getElementById('maquininhaStatus').textContent = 'Enviando cobrança para a maquininha...';
             try {
                 const itens = carrinho.map(i => ({ codigo: i.codigo, qtd: i.qtd }));
