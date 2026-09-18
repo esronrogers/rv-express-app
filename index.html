@@ -312,6 +312,12 @@
             </div>
         </div>
 
+        <div class="cartao-form" id="pixCarregando">
+            <div style="text-align:center;font-size:50px;margin:5px 0;">📱</div>
+            <p style="text-align:center;color:#e63946;font-size:22px;font-weight:900;line-height:1.4;">Gerando QR Code Pix...</p>
+            <p style="text-align:center;color:#777;font-size:15px;font-weight:600;" id="pixContagemTexto">Isso pode levar de 20 a 50 segundos.</p>
+        </div>
+
         <div class="pix-area" id="pixArea">
             <h3 style="color:#333;margin-bottom:5px;">📱 Pagar com PIX</h3>
             <p style="color:#777;font-size:13px;">Escaneie o QR Code abaixo ou copie o código</p>
@@ -682,22 +688,35 @@
         let maquininhaPagamentoId = null;
         let intervaloMaquininha = null;
 
-        async function processarPagamentoMaquininha() {
-            document.getElementById('maquininhaStatus').textContent = 'Preparando a maquininha...';
-            try {
-                // Antes de mandar uma cobrança nova, tenta limpar qualquer
-                // cobrança antiga que ficou "presa" na fila da maquininha
-                // (ex: cliente desistiu no meio e não cancelou nela).
-                // Isso evita que o próximo cliente fique travado sem
-                // conseguir pagar. Se não houver nada preso, isso não
-                // atrapalha em nada — só ignora o erro e segue.
-                try {
-                    await fetch(`${BACKEND_URL}/point/${POINT_DEVICE_ID}/limpar-fila`, { method: 'POST' });
-                } catch (e) {
-                    // Sem problema se falhar — segue o fluxo normal.
-                }
+        // Mostra a instrução completa de como destravar a maquininha,
+        // com passo a passo, quando o pagamento não consegue ser enviado
+        // (geralmente porque um cliente anterior desistiu sem cancelar).
+        function mostrarInstrucaoMaquininhaTravada() {
+            document.getElementById('maquininhaStatus').innerHTML = `
+                <div style="text-align:center;font-size:24px;font-weight:900;color:#e63946;margin-bottom:10px;">⚠️ ERRO — MAQUININHA TRAVADA</div>
+                <div style="text-align:left;font-size:17px;line-height:1.6;color:#333;font-weight:normal;">
+                    <strong>1️⃣ VÁ À MAQUININHA</strong><br>
+                    Mão esquerda → primeiro botão lateral.<br>
+                    👉 Pressione para ligar.<br><br>
+                    <strong>2️⃣ TELA ACESA</strong><br>
+                    👉 Pressione ← VOLTAR<br>
+                    👉 Até aparecer essas duas figuras:<br>
+                    <span style="font-size:26px;">🖥️ + 📱</span><br><br>
+                    Se não aparecer:<br>
+                    👉 Toque em <strong>VENDA</strong>.<br>
+                    👉 Aguarde aparecer 🖥️ + 📱.<br><br>
+                    <strong>3️⃣ VOLTE AO TABLET</strong><br>
+                    👉 Cancele a compra.<br>
+                    👉 Bipe novamente.<br>
+                    👉 Conclua sua compra.<br><br>
+                    <span style="color:#2a9d8f;font-weight:bold;">✅ Pronto!</span>
+                </div>
+            `;
+        }
 
-                document.getElementById('maquininhaStatus').textContent = 'Enviando cobrança para a maquininha...';
+        async function processarPagamentoMaquininha() {
+            document.getElementById('maquininhaStatus').textContent = 'Enviando cobrança para a maquininha...';
+            try {
                 const itens = carrinho.map(i => ({ codigo: i.codigo, qtd: i.qtd }));
                 const resp = await fetch(`${BACKEND_URL}/criar-pagamento-point`, {
                     method: 'POST',
@@ -707,7 +726,7 @@
                 const data = await resp.json();
 
                 if (!resp.ok || !data.id) {
-                    document.getElementById('maquininhaStatus').textContent = `❌ Erro: ${data.erro || 'Falha ao enviar cobrança'}`;
+                    mostrarInstrucaoMaquininhaTravada();
                     mostrarToast('❌ Erro ao enviar cobrança para a maquininha', 'erro');
                     return;
                 }
@@ -807,6 +826,33 @@
         // ================================================================
         // PROCESSAR PAGAMENTO PIX - VERSÃO ESTÁVEL
         // ================================================================
+        // Contagem regressiva mostrada enquanto o QR Code do Pix é
+        // gerado — útil principalmente quando o servidor está "dormindo"
+        // e demora mais. Se o QR chegar antes, a contagem só é
+        // interrompida (pararContagemPix), sem problema nenhum.
+        let intervaloContagemPix = null;
+
+        function iniciarContagemPix() {
+            let segundos = 50;
+            const elemento = document.getElementById('pixContagemTexto');
+            elemento.textContent = `Isso pode levar até ${segundos} segundos...`;
+            clearInterval(intervaloContagemPix);
+            intervaloContagemPix = setInterval(() => {
+                segundos--;
+                if (segundos > 0) {
+                    elemento.textContent = `Isso pode levar até ${segundos} segundos...`;
+                } else {
+                    elemento.textContent = 'Só mais um pouquinho...';
+                    clearInterval(intervaloContagemPix);
+                }
+            }, 1000);
+        }
+
+        function pararContagemPix() {
+            clearInterval(intervaloContagemPix);
+            document.getElementById('pixCarregando').classList.remove('ativo');
+        }
+
         async function processarPIX() {
             if (carrinho.length === 0) {
                 mostrarToast('Carrinho vazio!', 'erro');
@@ -814,7 +860,8 @@
             }
 
             const total = carrinho.reduce((s, i) => s + (i.preco * i.qtd), 0);
-            mostrarToast('📱 Gerando QR Code PIX...', '');
+            document.getElementById('pixCarregando').classList.add('ativo');
+            iniciarContagemPix();
 
             try {
                 const itens = carrinho.map(i => ({ codigo: i.codigo, qtd: i.qtd }));
@@ -834,6 +881,7 @@
                 });
 
                 const data = await response.json();
+                pararContagemPix();
 
                 if (!response.ok) {
                     mostrarToast(`❌ Erro: ${data.erro || 'Falha na comunicação com o servidor'}`, 'erro');
@@ -864,6 +912,7 @@
 
             } catch (error) {
                 console.error('Erro:', error);
+                pararContagemPix();
                 mostrarToast('❌ Erro ao gerar QR Code PIX. Tente novamente.', 'erro');
             }
         }
@@ -908,6 +957,7 @@
 
         function fecharPix() {
             clearInterval(intervaloPix);
+            pararContagemPix();
             document.getElementById('pixArea').classList.remove('ativo');
             document.getElementById('pixQrCode').src = '';
             document.getElementById('pixCodigo').textContent = '';
