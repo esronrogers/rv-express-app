@@ -730,7 +730,10 @@
                 }
 
                 maquininhaPagamentoId = data.id;
-                document.getElementById('maquininhaStatus').textContent = 'Vá até a maquininha, escolha Crédito ou Débito, depois insira ou aproxime o cartão.';
+                document.getElementById('maquininhaStatus').innerHTML = `
+                    Vá até a maquininha, escolha Crédito ou Débito, depois insira ou aproxime o cartão.
+                    <div style="font-size:15px;font-weight:600;color:#777;margin-top:10px;line-height:1.4;">Se a máquina não acender, aperte o primeiro botão com a sua mão esquerda ao lado da máquineta. Em seguida, toque em venda para atualizar e finalizar sua compra.</div>
+                `;
                 iniciarVerificacaoMaquininha();
             } catch (error) {
                 console.error('Erro:', error);
