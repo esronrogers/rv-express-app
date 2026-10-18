@@ -149,6 +149,20 @@
         .admin-stats .stat { background: white; padding: 10px; border-radius: 10px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
         .admin-stats .stat .num { font-size: 24px; font-weight: bold; color: #e63946; }
         .admin-stats .stat .label { font-size: 11px; color: #999; }
+        .admin-topo { display: flex; gap: 8px; margin-bottom: 10px; flex-shrink: 0; }
+        .admin-topo button { flex: 1; padding: 12px 8px; border: none; border-radius: 10px; font-weight: bold; font-size: 15px; cursor: pointer; color: white; }
+        .admin-topo button:active { transform: scale(0.95); }
+        .btn-top20 { background: #8e44ad; }
+        .btn-estoque-baixo { background: #e74c3c; flex: 0 0 auto !important; padding: 12px 14px !important; font-size: 14px !important; }
+        .rank-abas { display: flex; gap: 8px; margin-bottom: 12px; }
+        .rank-abas button { flex: 1; padding: 10px; border: 2px solid #8e44ad; background: white; color: #8e44ad; border-radius: 10px; font-weight: bold; font-size: 15px; cursor: pointer; }
+        .rank-abas button.sel { background: #8e44ad; color: white; }
+        .rank-item { display: flex; align-items: center; gap: 10px; background: #f8f9fa; border-radius: 12px; padding: 10px; margin-bottom: 8px; }
+        .rank-pos { font-size: 20px; font-weight: bold; min-width: 44px; text-align: center; color: #8e44ad; }
+        .rank-nome { flex: 1; font-size: 16px; font-weight: 600; color: #333; }
+        .rank-qtd { font-size: 16px; font-weight: bold; color: #27ae60; text-align: right; white-space: nowrap; }
+        .rank-qtd.vermelho { color: #e74c3c; }
+        .rank-sub { font-size: 12px; color: #777; font-weight: normal; }
         .admin-actions { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; flex-shrink: 0; }
         .admin-actions button { flex: 1; padding: 10px; border: none; border-radius: 10px; font-weight: bold; font-size: 13px; cursor: pointer; transition: all 0.2s; min-width: 80px; }
         .admin-actions button:active { transform: scale(0.95); }
@@ -373,10 +387,21 @@
     <!-- ===== TELA 6 - ADMIN ===== -->
     <div id="telaAdmin" class="tela">
         <div class="admin-header"><h2>⚙️ Administração</h2><button class="btn-sair" onclick="sairAdmin()">🚪 Sair</button></div>
-        <div class="admin-stats"><div class="stat"><div class="num" id="totalProdutos">0</div><div class="label">📦 Produtos</div></div><div class="stat"><div class="num" id="totalVendas">0</div><div class="label">💰 Vendas (hoje)</div></div></div>
+        <div class="admin-stats"><div class="stat"><div class="num" id="totalProdutos">0</div><div class="label">📦 Produtos</div></div><div class="stat"><div class="num" id="totalVendas">0</div><div class="label" id="labelVendas">💰 Vendas (hoje)</div></div></div>
+        <div class="admin-topo"><button class="btn-top20" onclick="abrirRanking('top20')">🏆 Top 20 mais vendidos</button><button class="btn-estoque-baixo" onclick="abrirRanking('baixo')">🔴 Estoque baixo</button></div>
         <div class="admin-actions"><button class="btn-add-produto" onclick="abrirModalProduto()">➕ Adicionar Produto</button><button class="btn-reset-produtos" onclick="resetarProdutos()">🔄 Resetar Padrão</button></div>
         <div class="campo-busca-admin"><input type="text" id="buscaProdutoAdmin" placeholder="🔍 Buscar produto pelo nome..." oninput="renderizarListaAdmin()"></div>
         <div class="admin-lista" id="adminLista"></div>
+    </div>
+
+    <!-- ===== MODAL RANKING ===== -->
+    <div class="modal-overlay" id="modalRanking">
+        <div class="modal-box">
+            <h3 id="rankingTitulo">🏆 Top 20</h3>
+            <div class="rank-abas" id="rankAbas"><button id="abaGeral" onclick="trocarAbaRanking('geral')">Geral</button><button id="abaMes" onclick="trocarAbaRanking('mes')">Este mês</button></div>
+            <div id="rankingLista"></div>
+            <div class="modal-acoes"><button class="btn-cancelar-modal" onclick="fecharRanking()">Fechar</button></div>
+        </div>
     </div>
 
     <!-- ===== MODAL ===== -->
@@ -563,7 +588,7 @@
                 document.getElementById('pixArea').classList.remove('ativo');
                 pagamentoSelecionado = null;
             }
-            if (id === 'telaAdmin') carregarProdutos();
+            if (id === 'telaAdmin') { carregarProdutos(); atualizarVendasHoje(); }
             if (id === 'telaLoginAdmin') {
                 document.getElementById('senhaAdmin').value = '';
                 document.getElementById('erroLogin').classList.remove('visible');
@@ -1144,6 +1169,53 @@
 
         function sairAdmin() { irTela('telaBoasVindas'); }
 
+        // Vendas de hoje: vem do servidor, então é igual em todos os aparelhos
+        async function atualizarVendasHoje() {
+            try {
+                const r = await fetch(`${BACKEND_URL}/vendas-hoje`, { headers: { 'x-admin-key': senhaAdminAtual } });
+                if (!r.ok) return;
+                const v = await r.json();
+                document.getElementById('totalVendas').textContent = v.qtd;
+                document.getElementById('labelVendas').textContent = '💰 Vendas (hoje) • R$ ' + Number(v.total).toFixed(2).replace('.', ',');
+            } catch (e) { /* sem internet: mantém o valor anterior */ }
+        }
+
+        // ===== TOP 20 e ESTOQUE BAIXO =====
+        let rankingAba = 'geral';
+        function abrirRanking(tipo) {
+            const modal = document.getElementById('modalRanking');
+            if (tipo === 'baixo') {
+                document.getElementById('rankingTitulo').textContent = '🔴 Estoque baixo (4 ou menos)';
+                document.getElementById('rankAbas').style.display = 'none';
+                const baixos = produtosDB.filter(p => (Number(p.estoque) || 0) <= 4)
+                    .sort((a, b) => (Number(a.estoque) || 0) - (Number(b.estoque) || 0));
+                document.getElementById('rankingLista').innerHTML = baixos.length
+                    ? baixos.map(p => { const e = Number(p.estoque) || 0; return `<div class="rank-item"><div class="rank-nome">${p.imagem || '📦'} ${p.nome}</div><div class="rank-qtd vermelho">${e} un.</div></div>`; }).join('')
+                    : '<div class="admin-vazio"><span class="emoji">✅</span>Nenhum produto com estoque baixo!</div>';
+            } else {
+                document.getElementById('rankingTitulo').textContent = '🏆 Top 20 mais vendidos';
+                document.getElementById('rankAbas').style.display = 'flex';
+                trocarAbaRanking(rankingAba);
+            }
+            modal.classList.add('ativa');
+        }
+        function trocarAbaRanking(aba) {
+            rankingAba = aba;
+            document.getElementById('abaGeral').classList.toggle('sel', aba === 'geral');
+            document.getElementById('abaMes').classList.toggle('sel', aba === 'mes');
+            const mes = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }).slice(0, 7);
+            const lista = produtosDB.map(p => ({
+                p, total: aba === 'mes' ? (Number((p.vendasPorMes || {})[mes]) || 0) : (Number(p.vendidos) || 0)
+            })).filter(x => x.total > 0).sort((a, b) => b.total - a.total).slice(0, 20);
+            document.getElementById('rankingLista').innerHTML = lista.length
+                ? lista.map((x, i) => {
+                    const medalha = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1) + 'º';
+                    return `<div class="rank-item"><div class="rank-pos">${medalha}</div><div class="rank-nome">${x.p.imagem || '📦'} ${x.p.nome}</div><div class="rank-qtd">${x.total}<div class="rank-sub">vendidos</div></div></div>`;
+                }).join('')
+                : '<div class="admin-vazio"><span class="emoji">📊</span>Ainda sem vendas registradas.<br>O ranking começa a encher a partir das próximas vendas.</div>';
+        }
+        function fecharRanking() { document.getElementById('modalRanking').classList.remove('ativa'); }
+
         function renderizarListaAdmin() {
             const container = document.getElementById('adminLista');
             const termoBusca = (document.getElementById('buscaProdutoAdmin')?.value || '').trim().toLowerCase();
@@ -1360,6 +1432,14 @@
         }
 
         manterTelaLigada();
+
+        // Guarda uma cópia do app no aparelho (sw.js) para ele abrir
+        // mesmo se a internet estiver ruim na hora de reiniciar.
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(e => console.log('SW não registrado:', e.message));
+            });
+        }
 
         // O Wake Lock é liberado automaticamente quando o app perde o
         // foco (ex: troca de app). Ao voltar, pedimos de novo.
