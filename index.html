@@ -11,8 +11,22 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIlJWIEV4cHJlc3MiLAogICJzaG9ydF9uYW1lIjogIlJWIEV4cHJlc3MiLAogICJkZXNjcmlwdGlvbiI6ICJBdXRvYXRlbmRpbWVudG8gMjRoIiwKICAic3RhcnRfdXJsIjogIi4iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiNlNjM5NDYiLAogICJ0aGVtZV9jb2xvciI6ICIjZTYzOTQ2Igp9">
-    <script src="https://sdk.mercadopago.com/js/v2"></script>
-    <script src="https://www.mercadopago.com/v2/security.js" view="checkout"></script>
+    <script>
+        // Scripts do Mercado Pago carregam "de lado" (sem travar o app).
+        // Antes eles seguravam a tela inteira se a internet estivesse ruim.
+        (function () {
+            function carregar(src, attrs) {
+                try {
+                    var s = document.createElement('script');
+                    s.src = src; s.async = true;
+                    for (var k in (attrs || {})) s.setAttribute(k, attrs[k]);
+                    document.head.appendChild(s);
+                } catch (e) {}
+            }
+            carregar('https://sdk.mercadopago.com/js/v2');
+            carregar('https://www.mercadopago.com/v2/security.js', { view: 'checkout' });
+        })();
+    </script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         html, body { overflow: hidden; height: 100%; width: 100%; font-family: 'Segoe UI', Arial, sans-serif; background: #f5f5f5; touch-action: none; position: fixed; top: 0; left: 0; }
@@ -149,6 +163,25 @@
         .admin-stats .stat { background: white; padding: 10px; border-radius: 10px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
         .admin-stats .stat .num { font-size: 24px; font-weight: bold; color: #e63946; }
         .admin-stats .stat .label { font-size: 11px; color: #999; }
+        #telaBoot { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #e63946; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; z-index: 99999; }
+        #telaBoot .boot-logo { font-size: 64px; margin-bottom: 10px; }
+        #telaBoot h1 { font-size: 38px; font-weight: 900; letter-spacing: 2px; margin-bottom: 8px; }
+        #telaBoot .boot-sub { font-size: 20px; opacity: 0.9; }
+        #btnReiniciarBoot { display: none; margin-top: 30px; padding: 22px 30px; font-size: 26px; font-weight: bold; background: white; color: #e63946; border: none; border-radius: 16px; cursor: pointer; }
+        #btnReiniciarBoot:active { transform: scale(0.95); }
+        .btn-relatorio { width: 100%; padding: 14px; margin-bottom: 10px; border: none; border-radius: 10px; background: #2c3e50; color: white; font-size: 16px; font-weight: bold; cursor: pointer; flex-shrink: 0; }
+        .btn-relatorio:active { transform: scale(0.97); }
+        .rel-resumo { background: #2c3e50; color: white; border-radius: 12px; padding: 12px; margin-bottom: 12px; text-align: center; }
+        .rel-resumo .grande { font-size: 26px; font-weight: bold; }
+        .rel-resumo .peq { font-size: 13px; opacity: 0.85; }
+        .rel-linha { background: #f8f9fa; border-radius: 12px; padding: 10px; margin-bottom: 8px; }
+        .rel-topo { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 16px; font-weight: 600; color: #333; }
+        .rel-valor { font-weight: bold; color: #27ae60; white-space: nowrap; }
+        .rel-sub { font-size: 12px; color: #777; margin-top: 2px; }
+        .rel-barra { height: 8px; background: #e0e0e0; border-radius: 4px; margin-top: 6px; overflow: hidden; }
+        .rel-barra > div { height: 100%; background: #8e44ad; border-radius: 4px; }
+        .rel-melhor { border: 2px solid #f1c40f; }
+        .rel-sobe { color: #27ae60; font-weight: bold; } .rel-desce { color: #e74c3c; font-weight: bold; }
         .admin-topo { display: flex; gap: 8px; margin-bottom: 10px; flex-shrink: 0; }
         .admin-topo button { flex: 1; padding: 12px 8px; border: none; border-radius: 10px; font-weight: bold; font-size: 15px; cursor: pointer; color: white; }
         .admin-topo button:active { transform: scale(0.95); }
@@ -167,7 +200,6 @@
         .admin-actions button { flex: 1; padding: 10px; border: none; border-radius: 10px; font-weight: bold; font-size: 13px; cursor: pointer; transition: all 0.2s; min-width: 80px; }
         .admin-actions button:active { transform: scale(0.95); }
         .btn-add-produto { background: #27ae60; color: white; }
-        .btn-reset-produtos { background: #e67e22; color: white; }
         .admin-lista { background: white; border-radius: 12px; padding: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
         .campo-busca-admin { margin-bottom: 10px; }
         .campo-busca-admin input { width: 100%; padding: 12px 14px; border: 2px solid #ddd; border-radius: 10px; font-size: 15px; box-sizing: border-box; }
@@ -255,6 +287,33 @@
     </style>
 </head>
 <body>
+    <!-- TELA DE ABERTURA: aparece na hora. Se o app demorar a carregar,
+         surge o botão "toque aqui para reiniciar". Some sozinha quando o app abre. -->
+    <div id="telaBoot">
+        <div class="boot-logo">🛒</div>
+        <h1>RV EXPRESS</h1>
+        <div class="boot-sub" id="bootSub">Carregando...</div>
+        <button id="btnReiniciarBoot" onclick="location.reload()">🔄 TOQUE AQUI PARA REINICIAR</button>
+    </div>
+    <script>
+        (function () {
+            // depois de 8s sem abrir: mostra o botão para o cliente tocar
+            setTimeout(function () {
+                if (window.__rvAberto) return;
+                var b = document.getElementById('btnReiniciarBoot'); if (b) b.style.display = 'block';
+                var t = document.getElementById('bootSub'); if (t) t.textContent = 'Está demorando mais que o normal...';
+            }, 8000);
+            // depois de 25s sem abrir: reinicia sozinho (no máximo 3 vezes seguidas)
+            setTimeout(function () {
+                if (window.__rvAberto) return;
+                try {
+                    var n = Number(sessionStorage.getItem('rv_boot_tentativas') || 0);
+                    if (n < 3) { sessionStorage.setItem('rv_boot_tentativas', String(n + 1)); location.reload(); }
+                } catch (e) { location.reload(); }
+            }, 25000);
+        })();
+    </script>
+
 
     <div id="toast" class="toast"></div>
 
@@ -389,9 +448,21 @@
         <div class="admin-header"><h2>⚙️ Administração</h2><button class="btn-sair" onclick="sairAdmin()">🚪 Sair</button></div>
         <div class="admin-stats"><div class="stat"><div class="num" id="totalProdutos">0</div><div class="label">📦 Produtos</div></div><div class="stat"><div class="num" id="totalVendas">0</div><div class="label" id="labelVendas">💰 Vendas (hoje)</div></div></div>
         <div class="admin-topo"><button class="btn-top20" onclick="abrirRanking('top20')">🏆 Top 20 mais vendidos</button><button class="btn-estoque-baixo" onclick="abrirRanking('baixo')">🔴 Estoque baixo</button></div>
-        <div class="admin-actions"><button class="btn-add-produto" onclick="abrirModalProduto()">➕ Adicionar Produto</button><button class="btn-reset-produtos" onclick="resetarProdutos()">🔄 Resetar Padrão</button></div>
+        <button class="btn-relatorio" onclick="abrirRelatorio()">📊 Relatório de vendas</button>
+        <div class="admin-actions"><button class="btn-add-produto" onclick="abrirModalProduto()">➕ Adicionar Produto</button></div>
         <div class="campo-busca-admin"><input type="text" id="buscaProdutoAdmin" placeholder="🔍 Buscar produto pelo nome..." oninput="renderizarListaAdmin()"></div>
         <div class="admin-lista" id="adminLista"></div>
+    </div>
+
+    <!-- ===== MODAL RELATÓRIO DE VENDAS ===== -->
+    <div class="modal-overlay" id="modalRelatorio">
+        <div class="modal-box">
+            <h3>📊 Relatório de vendas</h3>
+            <div class="rel-resumo" id="relResumo"></div>
+            <div class="rank-abas"><button id="relAbaDias" onclick="trocarAbaRelatorio('dias')">Dias</button><button id="relAbaSemana" onclick="trocarAbaRelatorio('semana')">Semana</button><button id="relAbaMeses" onclick="trocarAbaRelatorio('meses')">Meses</button></div>
+            <div id="relLista"></div>
+            <div class="modal-acoes"><button class="btn-cancelar-modal" onclick="fecharRelatorio()">Fechar</button></div>
+        </div>
     </div>
 
     <!-- ===== MODAL RANKING ===== -->
@@ -495,7 +566,8 @@
         const BACKEND_URL = 'https://rv-express-backend.onrender.com';
         const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbx5AjZQ_w_Hgiqa8lJ2sRlkHMJQnTH2gaxiCGQ_OeT16Lhy_Dva5fOth2jW2Ns2l2mX/exec';
 
-        const mp = new MercadoPago(MP_PUBLIC_KEY);
+        let mp = null;
+        try { mp = new MercadoPago(MP_PUBLIC_KEY); } catch (e) { console.log('SDK Mercado Pago não carregou (não é necessário):', e.message); }
 
         const PRODUTOS_PADRAO = [
             { id: 1, codigo: '7891000123456', nome: 'Coca-Cola 350ml', preco: 6.50, imagem: '🥤', detalhe: 'Lata 350ml' },
@@ -1180,6 +1252,76 @@
             } catch (e) { /* sem internet: mantém o valor anterior */ }
         }
 
+        // ===== RELATÓRIO DE VENDAS =====
+        let relDados = [], relAba = 'dias';
+        const brl = v => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        const dataDoDia = d => { const [a, m, di] = d.split('-').map(Number); return new Date(a, m - 1, di); };
+        const NOMES_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+        const NOMES_MES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+        async function abrirRelatorio() {
+            document.getElementById('modalRelatorio').classList.add('ativa');
+            document.getElementById('relResumo').innerHTML = '<div class="peq">Carregando...</div>';
+            document.getElementById('relLista').innerHTML = '';
+            try {
+                const r = await fetch(`${BACKEND_URL}/vendas-historico`, { headers: { 'x-admin-key': senhaAdminAtual } });
+                if (!r.ok) throw new Error('falha');
+                relDados = await r.json();
+            } catch (e) {
+                document.getElementById('relResumo').innerHTML = '<div class="peq">⚠️ Não consegui buscar as vendas. Verifique a internet e tente de novo.</div>';
+                return;
+            }
+            trocarAbaRelatorio(relAba);
+        }
+        function fecharRelatorio() { document.getElementById('modalRelatorio').classList.remove('ativa'); }
+
+        function trocarAbaRelatorio(aba) {
+            relAba = aba;
+            ['Dias', 'Semana', 'Meses'].forEach(n => document.getElementById('relAba' + n).classList.toggle('sel', aba === n.toLowerCase()));
+            const ano = new Date().getFullYear();
+            const doAno = relDados.filter(d => d.dia.startsWith(String(ano)));
+            const totAno = doAno.reduce((s, d) => s + d.total, 0), qtdAno = doAno.reduce((s, d) => s + d.qtd, 0);
+            document.getElementById('relResumo').innerHTML = `<div class="peq">Total de ${ano}</div><div class="grande">${brl(totAno)}</div><div class="peq">${qtdAno} vendas em ${doAno.length} dia${doAno.length === 1 ? '' : 's'} com movimento</div>`;
+            const box = document.getElementById('relLista');
+            if (relDados.length === 0) {
+                box.innerHTML = '<div class="admin-vazio"><span class="emoji">📊</span>Ainda sem vendas registradas.<br>O relatório começa a encher com as próximas vendas.</div>';
+                return;
+            }
+            if (aba === 'dias') {
+                const lista = relDados.slice(-31).reverse();
+                const max = Math.max(...lista.map(d => d.total)) || 1;
+                box.innerHTML = lista.map(d => {
+                    const dt = dataDoDia(d.dia);
+                    const nome = NOMES_SEMANA[dt.getDay()].slice(0, 3) + ' ' + dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+                    return `<div class="rel-linha ${d.total === max ? 'rel-melhor' : ''}"><div class="rel-topo"><span>${d.total === max ? '🏆 ' : ''}${nome}</span><span class="rel-valor">${brl(d.total)}</span></div><div class="rel-sub">${d.qtd} venda${d.qtd === 1 ? '' : 's'}</div><div class="rel-barra"><div style="width:${Math.max(3, d.total / max * 100)}%"></div></div></div>`;
+                }).join('') + '<div class="rel-sub" style="text-align:center">Mostrando os últimos 31 dias com vendas</div>';
+            } else if (aba === 'semana') {
+                const g = NOMES_SEMANA.map((n, i) => ({ n, total: 0, dias: 0, qtd: 0, i }));
+                relDados.forEach(d => { const x = g[dataDoDia(d.dia).getDay()]; x.total += d.total; x.qtd += d.qtd; x.dias++; });
+                g.forEach(x => x.media = x.dias ? x.total / x.dias : 0);
+                const max = Math.max(...g.map(x => x.media)) || 1;
+                const ordem = [1, 2, 3, 4, 5, 6, 0].map(i => g[i]);
+                box.innerHTML = ordem.map(x => `<div class="rel-linha ${x.media === max && x.media > 0 ? 'rel-melhor' : ''}"><div class="rel-topo"><span>${x.media === max && x.media > 0 ? '🏆 ' : ''}${x.n}</span><span class="rel-valor">${brl(x.media)} <span style="font-weight:normal;font-size:12px">/dia</span></span></div><div class="rel-sub">Total: ${brl(x.total)} • ${x.dias} dia${x.dias === 1 ? '' : 's'} • ${x.qtd} venda${x.qtd === 1 ? '' : 's'}</div><div class="rel-barra"><div style="width:${x.media ? Math.max(3, x.media / max * 100) : 0}%"></div></div></div>`).join('')
+                    + '<div class="rel-sub" style="text-align:center">Valor por dia = média dos dias em que teve venda</div>';
+            } else {
+                const m = {};
+                relDados.forEach(d => { const k = d.dia.slice(0, 7); (m[k] = m[k] || { total: 0, qtd: 0, dias: 0 }); m[k].total += d.total; m[k].qtd += d.qtd; m[k].dias++; });
+                const ks = Object.keys(m).sort().reverse();
+                const max = Math.max(...ks.map(k => m[k].total)) || 1;
+                box.innerHTML = ks.map((k, idx) => {
+                    const x = m[k], [a, mm] = k.split('-').map(Number);
+                    const ant = m[ks[idx + 1]];
+                    let comp = '';
+                    if (ant && ant.total > 0) {
+                        const pct = (x.total - ant.total) / ant.total * 100;
+                        comp = `<span class="${pct >= 0 ? 'rel-sobe' : 'rel-desce'}">${pct >= 0 ? '▲' : '▼'} ${Math.abs(pct).toFixed(0)}%</span> vs mês anterior`;
+                    }
+                    const ehAtual = idx === 0 && k === new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }).slice(0, 7);
+                    return `<div class="rel-linha"><div class="rel-topo"><span>${NOMES_MES[mm - 1]} ${a}${ehAtual ? ' (até agora)' : ''}</span><span class="rel-valor">${brl(x.total)}</span></div><div class="rel-sub">${x.qtd} vendas • ${x.dias} dias com movimento • média ${brl(x.total / x.dias)}/dia</div><div class="rel-sub">${comp}</div><div class="rel-barra"><div style="width:${Math.max(3, x.total / max * 100)}%"></div></div></div>`;
+                }).join('');
+            }
+        }
+
         // ===== TOP 20 e ESTOQUE BAIXO =====
         let rankingAba = 'geral';
         function abrirRanking(tipo) {
@@ -1272,25 +1414,6 @@
                 </div>`;
             });
             container.innerHTML = html;
-        }
-
-        function resetarProdutos() {
-            confirmarAcao('🔄 Isso vai restaurar os produtos padrão do servidor e APAGAR todos os produtos que você adicionou! Confirmar?', async () => {
-                try {
-                    const resp = await fetch(`${BACKEND_URL}/produtos/restaurar-padrao`, {
-                        method: 'POST',
-                        headers: { 'x-admin-key': senhaAdminAtual }
-                    });
-                    const data = await resp.json();
-                    if (!resp.ok) { mostrarToast(`❌ ${data.erro || 'Erro ao restaurar produtos'}`, 'erro'); return; }
-                    produtosDB = data.produtos;
-                    salvarCacheLocal();
-                    renderizarListaAdmin();
-                    mostrarToast('✅ Produtos restaurados com sucesso!', 'sucesso');
-                } catch (e) {
-                    mostrarToast('❌ Sem conexão com o servidor. Tente novamente.', 'erro');
-                }
-            });
         }
 
         let modalEditandoId = null;
@@ -1487,6 +1610,12 @@
 
         window.addEventListener('online', tentarAutoAtualizar);
         setInterval(tentarAutoAtualizar, 30000); // rede extra de segurança, a cada 30s
+
+        // App abriu com sucesso: some a tela de abertura
+        window.__rvAberto = true;
+        try { sessionStorage.removeItem('rv_boot_tentativas'); } catch (e) {}
+        const _boot = document.getElementById('telaBoot');
+        if (_boot) _boot.style.display = 'none';
     </script>
 
 </body>

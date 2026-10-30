@@ -2,7 +2,7 @@
 // Se a internet cair na hora em que o app abrir/reiniciar, ele abre
 // com a cópia guardada em vez de ficar travado na tela com a logo.
 // Com internet, SEMPRE pega a versão mais nova do site.
-const CACHE = 'rv-express-v1';
+const CACHE = 'rv-express-v2';
 const ARQUIVOS = ['./', './index.html', './manifest.json', './icon-192x192.png', './icon-512x512.png'];
 
 self.addEventListener('install', (e) => {
@@ -25,8 +25,11 @@ self.addEventListener('fetch', (e) => {
     const req = e.request;
     if (req.method !== 'GET') return;
     if (new URL(req.url).origin !== self.location.origin) return; // backend e Mercado Pago passam direto
+    // Se a internet travar (não cai, mas não responde), depois de 6s
+    // usa a cópia guardada em vez de ficar esperando.
+    const limite = new Promise((_, rej) => setTimeout(() => rej(new Error('demorou')), 6000));
     e.respondWith(
-        fetch(req)
+        Promise.race([fetch(req), limite])
             .then(resp => {
                 if (resp && resp.ok) {
                     const copia = resp.clone();
