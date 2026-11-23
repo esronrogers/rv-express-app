@@ -1086,6 +1086,7 @@
             salvarVendaNoGoogleSheets(itensCarrinho, total, tipoPagamento, idPagamento);
             notificarVendaWhatsapp(itensCarrinho, total, tipoPagamento);
             gerarComprovante(tipoPagamento, itensCarrinho, idPagamento);
+            falar(FRASE_COMPRA_OK);
             carrinho = [];
             atualizarInterface();
             irTela('telaComprovante');
@@ -1132,6 +1133,33 @@
             document.getElementById('pagamentoInfo').textContent = pagamentoInfo;
         }
 
+        // ===== VOZ DO TABLET =====
+        // Frases faladas em voz alta. Para mudar o que ele fala, é só
+        // trocar o texto entre aspas. Para desligar a voz: VOZ_ATIVADA = false
+        const VOZ_ATIVADA = true;
+        const FRASE_PRODUTO_OK = 'Produto adicionado';
+        const FRASE_PRODUTO_ERRO = 'Produto não reconhecido. Tente passar de novo.';
+        const FRASE_COMPRA_OK = 'Compra finalizada. Obrigado e volte sempre!';
+
+        function falar(texto) {
+            try {
+                if (!VOZ_ATIVADA || !('speechSynthesis' in window)) return;
+                const s = window.speechSynthesis;
+                const iniciar = () => {
+                    const u = new SpeechSynthesisUtterance(texto);
+                    u.lang = 'pt-BR';
+                    u.rate = 1;
+                    u.volume = 1;
+                    const v = s.getVoices().find(x => /pt[-_]BR/i.test(x.lang));
+                    if (v) u.voice = v;
+                    s.speak(u);
+                };
+                // se ainda estiver falando a frase anterior, corta e fala a nova
+                if (s.speaking || s.pending) { s.cancel(); setTimeout(iniciar, 80); }
+                else iniciar();
+            } catch (e) { /* sem voz disponível: segue sem falar */ }
+        }
+
         let timeoutCodigo = null;
         let ultimoCodigoLido = '';
 
@@ -1144,6 +1172,7 @@
                 const produto = buscarProduto(codigo);
                 if (produto) {
                     adicionarProdutoCarrinho(produto);
+                    falar(FRASE_PRODUTO_OK);
                     statusBip.textContent = '✅ Produto adicionado!';
                     statusBip.className = 'status-bip ok';
                     this.style.borderColor = '#27ae60';
@@ -1160,6 +1189,7 @@
                         ultimoCodigoLido = '';
                     }, 2000);
                 } else {
+                    falar(FRASE_PRODUTO_ERRO);
                     statusBip.textContent = `❌ Código ${codigo} não encontrado!`;
                     statusBip.className = 'status-bip erro';
                     this.style.borderColor = '#e74c3c';
