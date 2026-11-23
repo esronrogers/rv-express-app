@@ -449,6 +449,8 @@
         <div class="admin-stats"><div class="stat"><div class="num" id="totalProdutos">0</div><div class="label">📦 Produtos</div></div><div class="stat"><div class="num" id="totalVendas">0</div><div class="label" id="labelVendas">💰 Vendas (hoje)</div></div></div>
         <div class="admin-topo"><button class="btn-top20" onclick="abrirRanking('top20')">🏆 Top 20 mais vendidos</button><button class="btn-estoque-baixo" onclick="abrirRanking('baixo')">🔴 Estoque baixo</button></div>
         <button class="btn-relatorio" onclick="abrirRelatorio()">📊 Relatório de vendas</button>
+        <button class="btn-relatorio" style="background:#16a085" onclick="testarVoz()">🔊 Testar voz do tablet</button>
+        <div id="vozInfo" class="rel-sub" style="margin:-4px 0 10px; text-align:center"></div>
         <div class="admin-actions"><button class="btn-add-produto" onclick="abrirModalProduto()">➕ Adicionar Produto</button></div>
         <div class="campo-busca-admin"><input type="text" id="buscaProdutoAdmin" placeholder="🔍 Buscar produto pelo nome..." oninput="renderizarListaAdmin()"></div>
         <div class="admin-lista" id="adminLista"></div>
@@ -1141,6 +1143,12 @@
         const FRASE_PRODUTO_ERRO = 'Produto não reconhecido. Tente passar de novo.';
         const FRASE_COMPRA_OK = 'Compra finalizada. Obrigado e volte sempre!';
 
+        let vozUltimoErro = '';
+        function escolherVozPt() {
+            const vs = window.speechSynthesis.getVoices();
+            return vs.find(x => /pt[-_]BR/i.test(x.lang)) || vs.find(x => /^pt/i.test(x.lang)) || null;
+        }
+
         function falar(texto) {
             try {
                 if (!VOZ_ATIVADA || !('speechSynthesis' in window)) return;
@@ -1150,14 +1158,35 @@
                     u.lang = 'pt-BR';
                     u.rate = 1;
                     u.volume = 1;
-                    const v = s.getVoices().find(x => /pt[-_]BR/i.test(x.lang));
+                    const v = escolherVozPt();
                     if (v) u.voice = v;
+                    u.onerror = (e) => { vozUltimoErro = (e && e.error) ? e.error : 'erro'; console.log('Erro de voz:', vozUltimoErro); };
+                    try { s.resume(); } catch (e) {}
                     s.speak(u);
                 };
                 // se ainda estiver falando a frase anterior, corta e fala a nova
                 if (s.speaking || s.pending) { s.cancel(); setTimeout(iniciar, 80); }
                 else iniciar();
-            } catch (e) { /* sem voz disponível: segue sem falar */ }
+            } catch (e) { vozUltimoErro = e.message || 'erro'; }
+        }
+
+        // No primeiro toque na tela, "destrava" a voz do navegador (exigência do Android)
+        document.addEventListener('pointerdown', () => {
+            try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; window.speechSynthesis.speak(u); } catch (e) {}
+        }, { once: true });
+
+        // Botão do Admin: fala e mostra o que o tablet informa sobre a voz
+        function testarVoz() {
+            const info = document.getElementById('vozInfo');
+            vozUltimoErro = '';
+            if (!('speechSynthesis' in window)) { info.textContent = '❌ Este aparelho não tem voz no navegador.'; return; }
+            const total = window.speechSynthesis.getVoices().length;
+            const pt = escolherVozPt();
+            falar('Teste de voz. Produto adicionado.');
+            info.textContent = `Vozes encontradas: ${total} • Português: ${pt ? 'sim (' + pt.name + ')' : 'NÃO encontrada'} • Falando...`;
+            setTimeout(() => {
+                info.textContent = `Vozes encontradas: ${total} • Português: ${pt ? 'sim (' + pt.name + ')' : 'NÃO encontrada'} • Erro: ${vozUltimoErro || 'nenhum'}`;
+            }, 2500);
         }
 
         let timeoutCodigo = null;
