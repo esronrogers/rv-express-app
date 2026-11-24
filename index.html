@@ -1149,9 +1149,29 @@
             return vs.find(x => /pt[-_]BR/i.test(x.lang)) || vs.find(x => /^pt/i.test(x.lang)) || null;
         }
 
-        function falar(texto) {
+        // Áudios gravados (arquivos .mp3 na mesma pasta do app). Tocam sem depender
+        // da voz do Google do tablet. Se algum falhar, usa a voz sintetizada como reserva.
+        const ARQUIVOS_AUDIO = {};
+        ARQUIVOS_AUDIO[FRASE_PRODUTO_OK] = 'produto_ok.mp3';
+        ARQUIVOS_AUDIO[FRASE_PRODUTO_ERRO] = 'produto_erro.mp3';
+        ARQUIVOS_AUDIO[FRASE_COMPRA_OK] = 'compra_ok.mp3';
+        const audiosProntos = {};   // texto -> elemento Audio pronto
+        let audioAtual = null;
+
+        function carregarAudio(texto) {
+            const arq = ARQUIVOS_AUDIO[texto];
+            if (!arq || audiosProntos[texto]) return;
+            fetch('./' + arq)
+                .then(r => { if (!r.ok) throw new Error('http ' + r.status); return r.blob(); })
+                .then(b => { const a = new Audio(URL.createObjectURL(b)); a.preload = 'auto'; audiosProntos[texto] = a; })
+                .catch(e => console.log('Áudio não carregou:', arq, e.message));
+        }
+        function carregarTodosAudios() { Object.keys(ARQUIVOS_AUDIO).forEach(carregarAudio); }
+        carregarTodosAudios();
+
+        function falarSintetizado(texto) {
             try {
-                if (!VOZ_ATIVADA || !('speechSynthesis' in window)) return;
+                if (!('speechSynthesis' in window)) return;
                 const s = window.speechSynthesis;
                 const iniciar = () => {
                     const u = new SpeechSynthesisUtterance(texto);
@@ -1170,22 +1190,43 @@
             } catch (e) { vozUltimoErro = e.message || 'erro'; }
         }
 
+        function falar(texto) {
+            try {
+                if (!VOZ_ATIVADA) return;
+                const a = audiosProntos[texto];
+                if (!a) { carregarAudio(texto); falarSintetizado(texto); return; }
+                // corta o áudio anterior, se ainda estiver tocando
+                if (audioAtual && audioAtual !== a) { try { audioAtual.pause(); } catch (e) {} }
+                audioAtual = a;
+                a.currentTime = 0;
+                a.volume = 1;
+                const r = a.play();
+                if (r && r.catch) r.catch(e => {
+                    vozUltimoErro = 'áudio: ' + (e && e.name ? e.name : 'erro');
+                    console.log('Áudio não tocou:', vozUltimoErro);
+                    falarSintetizado(texto);
+                });
+            } catch (e) { vozUltimoErro = e.message || 'erro'; falarSintetizado(texto); }
+        }
+
         // No primeiro toque na tela, "destrava" a voz do navegador (exigência do Android)
         document.addEventListener('pointerdown', () => {
             try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; window.speechSynthesis.speak(u); } catch (e) {}
         }, { once: true });
 
-        // Botão do Admin: fala e mostra o que o tablet informa sobre a voz
+        // Botão do Admin: toca o áudio gravado e mostra o que o tablet informa
         function testarVoz() {
             const info = document.getElementById('vozInfo');
             vozUltimoErro = '';
-            if (!('speechSynthesis' in window)) { info.textContent = '❌ Este aparelho não tem voz no navegador.'; return; }
-            const total = window.speechSynthesis.getVoices().length;
-            const pt = escolherVozPt();
-            falar('Teste de voz. Produto adicionado.');
-            info.textContent = `Vozes encontradas: ${total} • Português: ${pt ? 'sim (' + pt.name + ')' : 'NÃO encontrada'} • Falando...`;
+            carregarTodosAudios();
+            const gravados = Object.keys(audiosProntos).length + ' de ' + Object.keys(ARQUIVOS_AUDIO).length;
+            const total = ('speechSynthesis' in window) ? window.speechSynthesis.getVoices().length : 0;
+            const pt = ('speechSynthesis' in window) ? escolherVozPt() : null;
+            falar(FRASE_PRODUTO_OK);
+            info.textContent = `Áudios gravados carregados: ${gravados} • Falando...`;
             setTimeout(() => {
-                info.textContent = `Vozes encontradas: ${total} • Português: ${pt ? 'sim (' + pt.name + ')' : 'NÃO encontrada'} • Erro: ${vozUltimoErro || 'nenhum'}`;
+                const g = Object.keys(audiosProntos).length + ' de ' + Object.keys(ARQUIVOS_AUDIO).length;
+                info.textContent = `Áudios gravados carregados: ${g} • Voz reserva em português: ${pt ? 'sim' : 'NÃO'} (${total} vozes) • Erro: ${vozUltimoErro || 'nenhum'}`;
             }, 2500);
         }
 

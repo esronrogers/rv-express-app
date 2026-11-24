@@ -2,8 +2,8 @@
 // Se a internet cair na hora em que o app abrir/reiniciar, ele abre
 // com a cópia guardada em vez de ficar travado na tela com a logo.
 // Com internet, SEMPRE pega a versão mais nova do site.
-const CACHE = 'rv-express-v2';
-const ARQUIVOS = ['./', './index.html', './manifest.json', './icon-192x192.png', './icon-512x512.png'];
+const CACHE = 'rv-express-v3';
+const ARQUIVOS = ['./', './index.html', './manifest.json', './icon-192x192.png', './icon-512x512.png', './produto_ok.mp3', './produto_erro.mp3', './compra_ok.mp3'];
 
 self.addEventListener('install', (e) => {
     e.waitUntil(
@@ -31,7 +31,7 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(
         Promise.race([fetch(req), limite])
             .then(resp => {
-                if (resp && resp.ok) {
+                if (resp && resp.status === 200) {
                     const copia = resp.clone();
                     caches.open(CACHE).then(c => c.put(req, copia));
                 }
